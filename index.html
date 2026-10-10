@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>永序锋魂 · 0.6.5</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="vignette"></div>
+<div id="descendFx"></div>
+<div id="clashCenter">
+  <div class="cc-inner">
+    <div class="cc-side cc-left">
+      <div class="cc-head" id="ccLeftName">—</div>
+      <div class="cc-skill" id="ccLeftSkill"></div>
+      <div class="cc-power" id="ccLeftPow">0</div>
+      <div class="cc-coins" id="ccLeftCoins"></div>
+    </div>
+    <div class="cc-mid">
+      <div class="cc-vs" id="ccVs">VS</div>
+      <div class="cc-round" id="ccRound">拼点 1</div>
+    </div>
+    <div class="cc-side cc-right">
+      <div class="cc-head" id="ccRightName">—</div>
+      <div class="cc-skill" id="ccRightSkill"></div>
+      <div class="cc-power" id="ccRightPow">0</div>
+      <div class="cc-coins" id="ccRightCoins"></div>
+    </div>
+  </div>
+  <div class="cc-verdict" id="ccVerdict"></div>
+</div>
+<div id="stars"></div>
+
+<div id="app">
+
+  <!-- ================= 标题界面 ================= -->
+  <section id="scr-title" class="screen active">
+    <div class="title-wrap">
+      <div class="org-mark">恒</div>
+      <h1 class="game-title">永序锋魂</h1>
+      <p class="game-sub">[恒]组织 · 十一任恒永者纪传体 RPG</p>
+      <div class="title-ver">0.6.5</div>
+      <div class="title-quote" id="titleQuote">「我替他们记着了。」</div>
+      <div class="title-btns">
+        <button class="btn btn-primary" data-act="new">新 的 传 记</button>
+        <button class="btn" data-act="continue">继 续 前 行</button>
+        <button class="btn btn-ghost" data-act="quests">支 线 委 托</button>
+        <button class="btn btn-ghost" data-act="arena">无 垠 厅</button>
+        <button class="btn btn-ghost" data-act="codex">典 藏 室</button>
+        <button class="btn btn-ghost" data-act="about">关 于 组 织</button>
+      </div>
+      <div class="title-foot">本作取材自 [恒]组织 恒永者设定集 · 同人演绎　｜　0.6.5</div>
+    </div>
+  </section>
+
+  <!-- ================= 创角 ================= -->
+  <section id="scr-create" class="screen">
+    <div class="panel panel-narrow">
+      <h2 class="panel-title">入 组 登 记</h2>
+      <p class="muted small">[恒]组织的档案里没有你的名字。请自己写上去。</p>
+      <label class="field"><span>姓名</span>
+        <input id="inpName" maxlength="8" placeholder="输入你的名字" value=""></label>
+      <label class="field"><span>出身</span>
+        <select id="inpOrigin">
+          <option value="orphan">异界孤儿（被带回的孩子）</option>
+          <option value="branch">分部世家</option>
+          <option value="frontier">前线遗孤</option>
+          <option value="void">虚无中诞生</option>
+        </select></label>
+      <p class="muted small" id="originDesc"></p>
+      <label class="field"><span>五脉初习</span>
+        <select id="inpSchool">
+          <option value="sword">恒之剑法 —— 守</option>
+          <option value="bow">恒之弓法 —— 远</option>
+          <option value="blade">恒之刃法 —— 短</option>
+          <option value="spear">恒之枪法 —— 贯</option>
+          <option value="axe">恒之斧法 —— 重</option>
+        </select></label>
+      <p class="muted small" id="schoolDesc"></p>
+      <label class="field"><span>誓言</span>
+        <select id="inpOath">
+          <option value="record">替他们记着（意志 +2）</option>
+          <option value="guard">一个都不许丢下（防御 +3）</option>
+          <option value="pursue">我要追上那道背影（力量 +3）</option>
+          <option value="wander">我想到处看看（速度 +3）</option>
+        </select></label>
+      <div class="row-end">
+        <button class="btn btn-ghost" data-act="back-title">返回</button>
+        <button class="btn btn-primary" data-act="start">签 下 名 字</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 主线地图 ================= -->
+  <section id="scr-map" class="screen">
+    <header class="hud">
+      <div class="hud-left">
+        <span class="hud-avatar" id="hudGlyph">恒</span>
+        <div>
+          <div class="hud-name" id="hudName">无名者</div>
+          <div class="hud-rank" id="hudRank">见习成员</div>
+        </div>
+      </div>
+      <div class="hud-stats" id="hudStats"></div>
+      <div class="hud-right">
+        <button class="btn btn-tiny btn-primary" data-act="boss">BOSS</button>
+        <button class="btn btn-tiny" data-act="spboss">全力</button>
+        <button class="btn btn-tiny btn-primary" data-act="quests">支线</button>
+        <button class="btn btn-tiny" data-act="commissions">委托</button>
+        <button class="btn btn-tiny btn-primary" data-act="duel">斗蛐蛐</button>
+        <button class="btn btn-tiny" data-act="tutorial">教程</button>
+        <button class="btn btn-tiny" data-act="squad">编队</button>
+        <button class="btn btn-tiny" data-act="recruit">征召</button>
+        <button class="btn btn-tiny" data-act="armory">兵装</button>
+        <button class="btn btn-tiny" data-act="bag">道具</button>
+        <button class="btn btn-tiny" data-act="skills">技能</button>
+        <button class="btn btn-tiny" data-act="arena">无垠厅</button>
+        <button class="btn btn-tiny" data-act="difficulty" style="display:none">难度</button>
+        <button class="btn btn-tiny btn-ghost" data-act="party">档案</button>
+        <button class="btn btn-tiny btn-ghost" data-act="codex">典藏</button>
+        <button class="btn btn-tiny btn-ghost" data-act="timeline">年表</button>
+      </div>
+    </header>
+    <div class="map-body">
+      <aside class="chapter-list" id="chapterList"></aside>
+      <div class="chapter-view">
+        <div class="chapter-head">
+          <div class="chapter-no" id="chNo">第一传</div>
+          <h2 id="chTitle">恒</h2>
+          <div class="chapter-meta" id="chMeta"></div>
+        </div>
+        <div class="stage-strip" id="stageStrip"></div>
+        <div class="chapter-desc" id="chDesc"></div>
+        <div class="row-end">
+          <button class="btn btn-primary" id="btnEnter" data-act="enter">推 进 剧 情</button>
+        </div>
+        <div class="unlock-note" id="unlockNote"></div>
+        <div class="quest-strip" id="questStrip"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 故事 ================= -->
+  <section id="scr-story" class="screen">
+    <div class="story-wrap">
+      <div class="story-top">
+        <span id="storyChLabel">第一传</span>
+        <span class="muted small" id="storyProgress">1 / 1</span>
+      </div>
+      <div class="story-illust">
+        <div class="illus-glyph" id="storyGlyph">恒</div>
+        <div class="illus-ring"></div>
+      </div>
+      <div class="story-box">
+        <div class="speaker" id="storySpeaker"></div>
+        <p class="story-text" id="storyText"></p>
+        <div class="choice-list" id="choiceList"></div>
+        <div class="story-next" id="storyNext"></div>
+        <div class="story-hint" id="advanceHint"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 战斗 · 拼点 ================= -->
+  <section id="scr-battle" class="screen">
+    <div class="battle-stage">
+      <div class="battle-topbar">
+        <span id="btlTitle">遭遇</span>
+        <span class="muted small" id="btlTurn">回合 1</span>
+        <span class="muted small" id="btlPhase">编成阶段</span>
+      </div>
+      <div class="drag-hint" id="dragHint">点成员卡选中 → 点敌人指定目标</div>
+      <div class="enemy-zone" id="enemyRow"></div>
+      <div class="battle-mid">
+        <div class="battle-log" id="battleLog"></div>
+        <div class="float-zone" id="floatZone"></div>
+      </div>
+      <div class="ally-zone" id="allyRow"></div>
+      <div class="assist-bar" id="battleTools"></div>
+      <div class="combo-zone" id="comboZone">
+        <div class="combo-head">招 式 联 合<span class="combo-tip">点招式逐招接入；每招显示与上一招的适配度与命中率</span></div>
+        <div class="combo-chain" id="comboChain"></div>
+        <div class="combo-actions" id="comboActions"></div>
+        <div class="combo-moves" id="comboMoves"></div>
+      </div>
+      <div class="skill-bar" id="skillBar"></div>
+    </div>
+  </section>
+
+  <!-- ================= 结算 ================= -->
+  <section id="scr-result" class="screen">
+    <div class="panel panel-narrow">
+      <h2 class="panel-title" id="resTitle">战 果</h2>
+      <div id="resBody"></div>
+      <div class="row-end" id="resBtns"></div>
+    </div>
+  </section>
+
+  <!-- ================= 弹窗 ================= -->
+  <div id="modal" class="modal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="modalTitle">标题</h3>
+        <button class="btn btn-tiny btn-ghost" data-act="close-modal">关闭</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</div>
+
+<script src="data.js"></script>
+<script src="audio.js"></script>
+<script src="combo.js"></script>
+<script src="ui.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
