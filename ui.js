@@ -42,6 +42,18 @@ function bindPressFeedback() {
   }, true);
 }
 
+/* 界面文案的语言切换：en 用英文，否则用中文。
+   这里不依赖 game.js 的 localizeDom，因为 dock 面板不在弹窗里，事后扫不到。 */
+function isEnNow() {
+  try { if (typeof S !== "undefined" && S && S.lang) return S.lang === "en"; } catch (e) {}
+  try {
+    var v = localStorage.getItem("heng_rpg_lang_v1");
+    if (v) return v === "en";
+  } catch (e) {}
+  return false;
+}
+function TB(zh, en) { return isEnNow() ? en : zh; }
+
 /* ============================================================
    二、打字机对话（galgame 式逐字出现）
    ============================================================ */
@@ -211,22 +223,22 @@ function buildAudioDock() {
   var dock = document.createElement("div");
   dock.id = "audioDock";
   dock.innerHTML =
-    '<button class="dock-btn dock-more" id="dockMore" title="设置">⚙</button>' +
+    '<button class="dock-btn dock-more" id="dockMore" title="' + TB("设置", "Settings") + '">⚙</button>' +
     '<div class="dock-panel" id="dockPanel">' +
       '<div class="dock-row">' +
-        '<button class="btn btn-tiny btn-primary" data-act="settings">设 置</button>' +
-        '<button class="btn btn-tiny" data-act="slots">存 档 位</button>' +
+        '<button class="btn btn-tiny btn-primary" data-act="settings">' + TB("设 置", "Settings") + '</button>' +
+        '<button class="btn btn-tiny" data-act="slots">' + TB("存 档 位", "Saves") + '</button>' +
       '</div>' +
-      '<label>音乐 <input type="range" id="volMusic" min="0" max="100" value="70"></label>' +
-      '<label>音效 <input type="range" id="volSfx" min="0" max="100" value="80"></label>' +
+      '<label>' + TB("音乐", "Music") + ' <input type="range" id="volMusic" min="0" max="100" value="70"></label>' +
+      '<label>' + TB("音效", "SFX") + ' <input type="range" id="volSfx" min="0" max="100" value="80"></label>' +
       '<div class="dock-row">' +
-        '<button class="btn btn-tiny" data-textspeed="40">文字：慢</button>' +
-        '<button class="btn btn-tiny" data-textspeed="26">文字：中</button>' +
-        '<button class="btn btn-tiny" data-textspeed="12">文字：快</button>' +
-        '<button class="btn btn-tiny" data-textspeed="0">文字：瞬显</button>' +
+        '<button class="btn btn-tiny" data-textspeed="40">' + TB("文字：慢", "Slow") + '</button>' +
+        '<button class="btn btn-tiny" data-textspeed="26">' + TB("文字：中", "Medium") + '</button>' +
+        '<button class="btn btn-tiny" data-textspeed="12">' + TB("文字：快", "Fast") + '</button>' +
+        '<button class="btn btn-tiny" data-textspeed="0">' + TB("文字：瞬显", "Instant") + '</button>' +
       '</div>' +
       '<div class="dock-row">' +
-        '<button class="btn btn-tiny btn-primary" data-act="tutorial">教 程</button>' +
+        '<button class="btn btn-tiny btn-primary" data-act="tutorial">' + TB("教 程", "Tutorial") + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(dock);
@@ -296,7 +308,7 @@ function buildAudioDock() {
       $$("#dockPanel [data-textspeed]").forEach(function (x) { x.classList.remove("btn-primary"); });
       b.classList.add("btn-primary");
       if (window.HengAudio) window.HengAudio.sfx("click");
-      if (typeof toast === "function") toast(v === 0 ? "文字：瞬间显示" : "文字速度已调整");
+      if (typeof toast === "function") toast(v === 0 ? TB("\u6587\u5b57\uff1a\u77ac\u95f4\u663e\u793a", "Text: Instant") : TB("\u6587\u5b57\u901f\u5ea6\u5df2\u8c03\u6574", "Text speed updated"));
     };
   });
   // 初始音量

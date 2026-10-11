@@ -45,9 +45,12 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove("on"), 2200);
 }
 function openModal(title, html) {
-  el("modalTitle").textContent = title;
+  el("modalTitle").textContent = tr(title);
   el("modalBody").innerHTML = html;
   el("modal").classList.add("on");
+  /* 弹窗是动态渲染的，每次打开都要重新本地化一次。
+     这是所有面板的唯一入口，挂这里以后新面板也会自动英文化。 */
+  try { localizeDom(el("modalBody")); } catch (e) {}
 }
 function closeModal() { el("modal").classList.remove("on"); }
 function show(screen) {
@@ -55,6 +58,8 @@ function show(screen) {
   $$(".screen").forEach((s) => s.classList.remove("active"));
   const node = el("scr-" + screen);
   if (node) node.classList.add("active");
+  /* 切换界面后把它本地化一遍（标题/建角/地图/战斗都是静态骨架 + 动态内容） */
+  try { localizeDom(node || document.body); } catch (e) {}
 }
 
 /* ============================================================
@@ -323,6 +328,8 @@ function newState(name, origin, school, oath) {
   st.questCounters = { battles:0, kills:0, killsByTag:{}, bossWins:0, arenaWins:0, fullHp:0 };
   st.drops = 0;
   st.difficulty = "normal";
+  /* 存档不再记语言：语言由当前页面（index.html / index.en.html）决定，
+     存档里带语言会导致在英文版玩过后、再开中文版还是英文。 */
   st.hardUnlocked = false;
   st.trueUnlocked = false;
   st.assistSeen = {};
@@ -393,14 +400,14 @@ function renderChapterView() {
   const ch = DATA.chapters[i];
   const cs = chapterState(i);
   const locked = i >= (S.unlocked || 1);
-  el("chNo").textContent = ch.no;
-  el("chTitle").textContent = locked ? "？？？" : ch.name;
+  el("chNo").textContent = tr(ch.no);
+  el("chTitle").textContent = locked ? "？？？" : tr(ch.name);
   el("chMeta").textContent = locked ? "——" :
-    ch.subtitle + " ｜ " + ch.era + " ｜ 敌对势力：" + ch.enemy.name;
+    tr(ch.subtitle) + " ｜ " + tr(ch.era) + " ｜ " + tr("敌对势力：") + tr(ch.enemy.name);
   el("chDesc").innerHTML = locked
     ? "<em>该传尚未解锁。先把前一传走完。</em>"
-    : ch.desc.replace(/\n/g, "<br>") + "<br><br><em>" +
-      (cs.done ? "已通关。" : "当前进度：第 " + cs.stages + " / " + ch.stages.length + " 幕") + "</em>";
+    : tr(ch.desc).replace(/\n/g, "<br>") + "<br><br><em>" +
+      (cs.done ? tr("已通关。") : tr("当前进度：") + cs.stages + " / " + ch.stages.length + " " + tr("幕")) + "</em>";
 
   const strip = el("stageStrip");
   strip.innerHTML = "";
@@ -410,7 +417,7 @@ function renderChapterView() {
     if (j < cs.stages) cls += " done";
     else if (j === cs.stages && !cs.done) cls += " now";
     d.className = cls;
-    d.textContent = (st.type === "battle" ? "⚔ " : "") + st.title;
+    d.textContent = (st.type === "battle" ? "⚔ " : "") + tr(st.title);
     strip.appendChild(d);
   });
 
@@ -421,23 +428,56 @@ function renderChapterView() {
   btn.textContent = locked ? "未 解 锁"
     : (cs.done ? (i === DATA.chapters.length - 1 ? "重 看 终 局" : "已 通 关") : (cs.stages === 0 ? "开 始 这 一 传" : "推 进 剧 情"));
 
+  /* 终章页面：多一个「重启主线」按钮，让玩家随时能升高难度重开。
+     只在还没升到最高可选难度时出现。 */
+  if (!restartRowEl) {
+    restartRowEl = document.createElement("div");
+    restartRowEl.id = "chRestartRow";
+    restartRowEl.className = "set-row set-btns";
+    restartRowEl.style.marginTop = "10px";
+    if (btn.parentNode) btn.parentNode.insertBefore(restartRowEl, btn.nextSibling);
+  }
+  restartRowEl.innerHTML = "";
+  if (i === DATA.chapters.length - 1) {
+    const tier = nextRestartTier();
+    if (tier) {
+      const nm = DATA.difficulties[tier].name;
+      const rb = document.createElement("button");
+      rb.className = "btn btn-primary";
+      rb.id = "btnRestartMain";
+      rb.textContent = isEn() ? "Restart Mainline (" + tr(nm) + ")" : "重 启 主 线（" + nm + "）";
+      rb.onclick = () => switchDifficulty(tier);
+      restartRowEl.appendChild(rb);
+      const hint = document.createElement("span");
+      hint.style.cssText = "font-size:12px;color:#ff9d84;align-self:center";
+      hint.textContent = isEn() ? "Cannot go back to a lower difficulty" : "重启后无法回到更低难度";
+      restartRowEl.appendChild(hint);
+    }
+  }
+
   const al = alliedList().map((id) => {
     const e = DATA.ever.find((x) => x.id === id);
-    return e ? e.no + " " + e.name : id;
+    return e ? tr(e.no) + " " + tr(e.name) : id;
   });
   if (!locked && ch.unlock) {
     const chips = al.length
       ? al.map((x) => '<span class="chip hot">' + x + "</span>").join("")
-      : "<span class='chip'>暂无 —— 走完第一传之后，会在这里看到他们的名字</span>";
+      : "<span class='chip'>" + tr("暂无 —— 走完第一传之后，会在这里看到他们的名字") + "</span>";
     el("unlockNote").innerHTML =
-      "<div style='flex:1 1 100%'>本传题记：" +
-        "<span style='color:var(--gold2)'>" + ch.unlock + "</span></div>" +
+      "<div style='flex:1 1 100%'>" + tr("本传题记：") +
+        "<span style='color:var(--gold2)'>" + tr(ch.unlock) + "</span></div>" +
       '<div class="chip-line">' +
-        '<span class="chip-label">已结缘的恒永者</span>' + chips +
+        '<span class="chip-label">' + tr("已结缘的恒永者") + '</span>' + chips +
       "</div>";
   } else {
     el("unlockNote").innerHTML = "";
   }
+
+  /* 兜底：章节页面上任何漏网的动态文本，这里统一再过一遍本地化 */
+  try {
+    if (isEn()) ["chapterList","chNo","chTitle","chMeta","chDesc","stageStrip","unlockNote"]
+      .forEach(function (id) { const n = el(id); if (n) localizeDom(n); });
+  } catch (e) {}
 }
 /* HUD 按钮滑条：首次进入轻微晃动提示可横滑；滑到最右就不再晃 */
 function armHudStrip() {
@@ -570,6 +610,192 @@ function duelStartFight() {
   refreshHonor();
   renderDuel();
 }
+/* ============================================================
+   语言切换
+   —— 中文是唯一数据源；切到英文时：
+      1) 对 DATA 应用一层英文覆盖（招式/兵装/敌人/章节…）
+      2) 再扫描已经渲染出来的 DOM，把还能对上的中文换成英文
+      —— 所以不需要给每个渲染点都写 t()，漏掉的也能兜住。
+   ============================================================ */
+/* 语言偏好独立于存档：标题界面、建角界面也要能切。
+   存在 localStorage 里，新建档案时再写进档。 */
+const LANG_KEY = "heng_rpg_lang_v1";
+let langPref = null;
+function loadLangPref() {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    if (v && DATA.langCodes.indexOf(v) >= 0) return v;
+  } catch (e) {}
+  return null;
+}
+function saveLangPref(v) {
+  try { localStorage.setItem(LANG_KEY, v); } catch (e) {}
+}
+/* 语言由「当前打开的是哪个页面」决定：
+   index.html = 中文，index.en.html = 英文。
+   不再读存档里的 S.lang —— 否则在英文版玩过之后，
+   再打开中文版也会被存档带回英文。 */
+const PAGE_LANG = (function () {
+  try {
+    const p = (typeof location !== "undefined" && location && location.pathname) || "";
+    return /index\.en\.html$/i.test(p) ? "en" : "zh";
+  } catch (e) { return "zh"; }
+})();
+function curLang() {
+  /* DATA.forcedLang 只在测试里用，正式运行永远是 null */
+  try { if (typeof DATA !== "undefined" && DATA.forcedLang) return DATA.forcedLang; } catch (e) {}
+  return PAGE_LANG;
+}
+/* 让 data.js 也能读到当前语言（脚本作用域变量不共享，必须走桥） */
+try {
+  DATA.langGetter = function () { return curLang(); };
+} catch (e) {}
+function isEn() { return curLang() === "en"; }
+function tr(s) {
+  if (!isEn()) return s;
+  if (s == null) return s;
+  const k = String(s);
+  /* 剧情正文用独立词典，按原文整段索引 */
+  const es = DATA.enStory;
+  if (es && Object.prototype.hasOwnProperty.call(es, k)) return es[k];
+  return (typeof DATA.t === "function") ? DATA.t(k) : k;
+}
+/* 剧情里可翻译的字段统一走这里 */
+function trf(obj, field) {
+  if (!obj || !isEn()) return obj;
+  const v = obj[field];
+  if (v != null) obj[field] = tr(v);
+  return obj;
+}
+
+/* 扫描一个子树里的文本节点与属性，把中文替换成英文。
+   两种匹配：
+     1) 整段精确命中词典 → 直接换
+     2) 整段没命中，但里面有词典里的短语（界面文案常把动态数值夹在中文里，
+        例如「已从功勋中扣除押注 110 点。」）→ 做短语替换
+   短语键按长度从长到短替换，避免短键先吃掉长键。 */
+let enPhraseKeys = null;
+function enPhraseList() {
+  if (enPhraseKeys) return enPhraseKeys;
+  const d = DATA.en || {};
+  enPhraseKeys = Object.keys(d)
+    .filter(function (k) { return k.length >= 2 && /[\u4e00-\u9fff]/.test(k); })
+    .sort(function (a, b) { return b.length - a.length; });
+  return enPhraseKeys;
+}
+function localizeDom(root) {
+  if (!isEn()) return 0;
+  const d = DATA.en || {};
+  let n = 0;
+
+  /* 只做「整段精确匹配」。
+     之前用子串替换是错的：它分不清「整段该翻」和「段里有个词该翻」，
+     于是把词典里的长译文塞进中文句子里，产出
+     「Settings panel. Music, SFX, saves and quit all 收在这里。」这种半英半中的东西。
+     空格无关：界面上常用全角空格排版（「新 的 传 记」），词典里不带。 */
+  const norm = function (x) { return String(x).replace(/[\s\u3000]+/g, ""); };
+  let exact = null;              // 去空白后的键 -> 译文
+  let dynKeys = null;            // 含数字的动态文本键，按长度降序
+
+  function buildIndex() {
+    exact = {};
+    dynKeys = [];
+    for (const k in d) {
+      if (!Object.prototype.hasOwnProperty.call(d, k)) continue;
+      const nk = norm(k);
+      if (!nk) continue;
+      exact[nk] = d[k];
+      if (/[0-9]/.test(k)) dynKeys.push(k);
+    }
+    dynKeys.sort(function (a, b) { return norm(b).length - norm(a).length; });
+  }
+
+  /* 动态文本：整段里只有数字/度量词不同，例如
+     「已从功勋中扣除押注 110 点。」「生命 96 ｜ 力量 11 ｜ 速度 6」
+     这类用「模板 + 数字占位」的方式替换。 */
+  function dynRewrite(raw) {
+    if (!dynKeys) return null;
+    const nr = norm(raw);
+    for (let i = 0; i < dynKeys.length; i++) {
+      const k = dynKeys[i];
+      const tpl = norm(k);
+      /* 把模板里的数字换成「任意位数」的通配，构造正则 */
+      const parts = tpl.split(/[0-9]+/);
+      if (parts.length < 2) continue;
+      let re = "^";
+      for (let t = 0; t < parts.length; t++) {
+        if (t > 0) re += "[0-9]*";
+        re += parts[t].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+      re += "$";
+      try {
+        if (new RegExp(re).test(nr)) {
+          /* 用原文里的数字回填译文模板 */
+          const nums = nr.match(/[0-9]+/g) || [];
+          let en = d[k];
+          let idx = 0;
+          en = en.replace(/[0-9]+/g, function () { return nums[idx++] !== undefined ? nums[idx - 1] : ""; });
+          return en;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  const fix = function (txt) {
+    if (txt == null) return null;
+    const raw = String(txt);
+    const k = raw.trim();
+    if (!k) return null;
+    if (!/[\u4e00-\u9fff]/.test(k)) return null;
+    if (!exact) buildIndex();
+    const nk = norm(k);
+    if (Object.prototype.hasOwnProperty.call(exact, nk)) { n++; return exact[nk]; }
+    const dyn = dynRewrite(k);
+    if (dyn !== null) { n++; return dyn; }
+    return null;
+  };
+
+  const walk = function (node) {
+    if (!node) return;
+    if (node.nodeType === 3) {
+      const v = fix(node.nodeValue);
+      if (v !== null) node.nodeValue = v;
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    /* placeholder / title / aria-label */
+    ["placeholder", "title", "aria-label"].forEach(function (a) {
+      const raw = node.getAttribute && node.getAttribute(a);
+      if (raw) { const v = fix(raw); if (v !== null) node.setAttribute(a, v); }
+    });
+    if (node.tagName === "INPUT" && node.type === "button") {
+      const v = fix(node.value); if (v !== null) node.value = v;
+    }
+    const kids = node.childNodes;
+    if (kids) for (let i = 0; i < kids.length; i++) walk(kids[i]);
+  };
+  walk(root || document.body);
+  return n;
+}
+/* 把整个界面按当前语言重画一遍 */
+function relocalize() {
+  try { if (typeof DATA.applyEnOverlay === "function") DATA.applyEnOverlay(); } catch (e) {}
+  try { renderHud(); } catch (e) {}
+  /* 音频/设置控制条是启动时构建一次的，语言变了要重建 */
+  try { if (window.HengFx && window.HengFx.buildAudioDock) window.HengFx.buildAudioDock(); } catch (e) {}
+  /* 地图与当前界面重画一遍 */
+  try { renderMap(); } catch (e) {}
+  try { localizeDom(document.body); } catch (e) {}
+}
+function setLang(code) {
+  if (DATA.langCodes.indexOf(code) < 0) return;
+  if (code === curLang()) return;
+  /* 英文与中文是两个独立页面，切语言 = 跳页 */
+  try { localStorage.removeItem(LANG_KEY); } catch (e) {}
+  location.href = (code === "en") ? "index.en.html" : "index.html";
+}
+
 /* 文字速度：统一入口。ui.js 的打字机直接读 S.textSpeed，
    这里改一处就够了——设置面板与音频控制条都调它。 */
 function setTextSpeed(v) {
@@ -702,6 +928,7 @@ function duelSettle() {
       击败后获得对应的特殊角色；战斗时编队暂时扩到 8 人
    ============================================================ */
 const SP_SQUAD_CAP = 8;
+let restartRowEl = null;      /* 终章页面的「重启主线」按钮容器 */
 function spDone() { return (S && S.specialBoss) || null; }
 function spUnlocked(b) {
   return chaptersCleared() >= (b.unlockChapters || 12);
@@ -838,6 +1065,8 @@ function startSpecialBoss(bossId, draftSquad) {
   S.specialBoss = bossId;            /* 立刻锁定：不可反悔 */
   S.spActive = true;                 /* 编队上限临时扩到 8 */
   closeModal();
+  /* 手机上如果哪一步炸了，玩家会看到一句提示而不是「点了没反应」 */
+  try {
   const stage = {
     type: "battle", boss: true, bossId: b.enemy, spBoss: bossId,
     title: "全力 · " + b.short,
@@ -855,20 +1084,32 @@ function startSpecialBoss(bossId, draftSquad) {
     B.spBoss = bossId;
     B.noItem = true;
     B.noHeal = true;
-    /* 全功率数值：生命拉到 20~26 回合的标度，攻击远高于普通 BOSS */
-    const bossHp = Math.round(760 + S.level * 190);
+    /* 全功率数值。因为这一战玩家能上 8 人，所以标度按「8 人满编、约 12~16 回合」配：
+       生命要够厚，攻击要能真的打死人——否则 8 打 1 就是碾压。 */
+    const bossHp = Math.round(1500 + S.level * 420);
     (B.enemies || []).forEach(function (en) {
       en.maxHp = bossHp;
       en.hp = bossHp;
-      en.atkLevel = Math.round(11 + S.level * 1.0);
-      en.defLevel = Math.round(9 + S.level * 0.95);
-      en.speed = Math.round(14 + S.level * 0.4);
+      en.atkLevel = Math.round(16 + S.level * 1.5);
+      en.defLevel = Math.round(11 + S.level * 1.1);
+      en.speed = Math.round(15 + S.level * 0.45);
       en.isBoss = true;
-      en.dmgMul = 1.05;
+      en.dmgMul = 1.45;
       if (b.pool && b.pool.length) en.moves = b.pool.filter((m) => DATA.moves[m]);
     });
     renderBattle();
     logLine("l-boss", "【" + b.name + "】封印全开。这一战你的编队扩到 " + SP_SQUAD_CAP + " 人，但另一方已经被你关上了门。");
+  }
+  } catch (err) {
+    /* 开战失败：把编队与锁定状态回滚，并明确告诉玩家出了什么错 */
+    if (S) {
+      S.spActive = false;
+      if (S.spPrevSquad) { S.squad = S.spPrevSquad.slice(); S.spPrevSquad = null; }
+      S.specialBoss = null;
+      saveGame(true);
+    }
+    try { renderMap(); show("map"); } catch (e2) {}
+    toast("进入全力战斗时出错：" + (err && err.message ? err.message : err));
   }
 }
 /* ---------- 胜利结算：授予特殊角色 ---------- */
@@ -879,9 +1120,12 @@ function grantSpReward(bossId) {
   const r = b.reward;
   S.allies = S.allies || [];
   S.allies.push({
-    id: spAllyId(b), name: r.name, tier: "relic", rarity: "relic",
+    id: spAllyId(b), name: r.name,
+    tier: r.rarity || "relic", rarity: r.rarity || "relic",
     level: Math.max(1, S.level), glyph: r.glyph, color: r.color,
-    base: r.base || 150, hpBonus: r.hpBonus || 0, speedBonus: 0,
+    base: r.base || 150, atkBonus: r.atkBonus || 0,
+    hpBonus: r.hpBonus || 0, speedBonus: r.speedBonus || 0, defBonus: r.defBonus || 0,
+    coins: r.coins || 0, sp: r.sp || 20,
     weaponId: r.weaponId || "orb_void", job: r.job || "mage",
     loadout: null, summonId: null, note: r.note || "特殊角色",
     spBoss: b.id, spPower: r.power || "∞",
@@ -1243,6 +1487,13 @@ function openSettings() {
   const spLabel = sp === 0 ? "瞬显" : (sp <= 12 ? "快" : (sp <= 26 ? "中" : "慢"));
   const html =
     "<p style='color:var(--muted)'>设置面板。音乐、音效、存档与退出都收在这里。</p>" +
+    "<h4>语言 / Language</h4>" +
+    "<div class='set-row'><span>界面与内容语言</span></div>" +
+    "<div class='set-row set-btns'>" +
+      DATA.langCodes.map((c) =>
+        "<button class='btn btn-tiny" + (curLang() === c ? " btn-primary" : "") +
+        "' data-lang='" + c + "'>" + DATA.langNames[c] + "</button>").join("") +
+    "</div>" +
     "<h4>音频</h4>" +
     "<div class='set-row'><span>背景音乐</span>" +
       "<button class='btn btn-tiny " + (musicOn ? "btn-primary" : "") + "' data-set='music'>" + on(musicOn) + "</button></div>" +
@@ -1271,6 +1522,14 @@ function openSettings() {
       "<button class='btn btn-tiny' data-set='quit'>退出游戏</button>" +
     "</div>";
   openModal("设置", html);
+  /* 语言：两个独立页面，点另一个就跳过去 */
+  $$("#modalBody [data-lang]").forEach((b) => {
+    b.onclick = () => {
+      const c = b.getAttribute("data-lang");
+      if (c === curLang()) { toast("已经是" + (c === "en" ? "英文" : "中文") + "了。"); return; }
+      setLang(c);
+    };
+  });
   const bind = (k, fn) => { const b = document.querySelector("[data-set='" + k + "']"); if (b) b.onclick = fn; };
   bind("music", () => {
     if (S) S.music = (S.music === false);
@@ -1313,6 +1572,14 @@ function openSettings() {
     const d = document.getElementById("volSfx"); if (d) d.value = this.value;
     saveGame(true);
   };
+  $$("#modalBody [data-lang]").forEach((b) => {
+    b.onclick = () => {
+      const c = b.getAttribute("data-lang");
+      if (c === curLang()) return;
+      setLang(c);
+      openSettings();
+    };
+  });
   $$("#modalBody [data-speed]").forEach((b) => {
     b.onclick = () => {
       setTextSpeed(b.getAttribute("data-speed"));
@@ -1321,16 +1588,44 @@ function openSettings() {
   });
 }
 /* 切换难度：从头重启剧情（否则高难度会作用到已经打过的进度上） */
+/* 重启主线到指定难度。
+   一旦重启到更高难度，就【不能】再回退到更低难度——这是不可逆的选择。 */
+function diffRank(id) { return { normal:0, hard:1, true:2 }[id] || 0; }
+function canRestartTo(id) {
+  if (!S) return false;
+  const cur = diffIdRaw();
+  if (id === cur) return false;
+  /* 只能往上升，不能往回降 */
+  if (diffRank(id) <= diffRank(cur)) return false;
+  if (id === "hard" && !S.hardUnlocked) return false;
+  if (id === "true" && !S.trueUnlocked) return false;
+  return true;
+}
+/* 终章页面上「下一步可以重启到哪个难度」；没有则返回 null */
+function nextRestartTier() {
+  if (!S) return null;
+  const cur = diffIdRaw();
+  if (cur === "normal" && S.hardUnlocked) return "hard";
+  if (cur === "hard" && S.trueUnlocked) return "true";
+  return null;
+}
 function switchDifficulty(id) {
   if (!DATA.difficulties[id]) return;
+  const cur = diffIdRaw();
+  if (id === cur) { toast("已经是这个难度了。"); return; }
+  if (diffRank(id) < diffRank(cur)) {
+    toast("难度不能回退 —— 选了【" + DATA.difficulties[cur].name + "】就只能往前走。");
+    return;
+  }
   if (id === "hard" && !S.hardUnlocked) { toast("困难还没解锁。"); return; }
   if (id === "true" && !S.trueUnlocked) { toast("真实还没解锁。"); return; }
-  if (id === diffIdRaw()) { toast("已经是这个难度了。"); return; }
-  if (!confirm("切换到【" + DATA.difficulties[id].name + "】？\n\n" +
-      "为了让难度生效，主线会从第一传第一幕重新开始。\n" +
-      "你的等级、功勋、队友、兵装都会保留，只是关卡进度回到开头。")) return;
+  const nm = DATA.difficulties[id].name;
+  if (!confirm("重启主线到【" + nm + "】？\n\n" +
+      "· 主线会从第一传第一幕重新开始\n" +
+      "· 等级、功勋、队友、兵装、招募到的角色都会保留\n" +
+      "· 关卡进度清零\n\n" +
+      "注意：这是不可逆的。重启到【" + nm + "】之后，就再也回不到更低的难度了。")) return;
   S.difficulty = id;
-  /* 关卡进度清零 */
   S.chapters = {};
   S.chapterIndex = 0;
   S.stage = 0;
@@ -1341,8 +1636,9 @@ function switchDifficulty(id) {
   closeModal();
   renderMap();
   show("map");
-  toast("已切换到【" + DATA.difficulties[id].name + "】，主线从第一传重新开始。");
+  toast("已重启主线到【" + nm + "】，从第一传重新开始。");
 }
+
 function quitGame() {
   if (isApp()) {
     if (!confirm("退出游戏？进度已保存，下次可以从存档位继续。")) return;
@@ -1833,12 +2129,12 @@ function startStage() {
 }
 function buildStoryQueue(st) {
   queue = [];
-  (st.lines || []).forEach((l) => queue.push({ kind:"line", sp:l.sp, text:l.text }));
+  (st.lines || []).forEach((l) => queue.push({ kind:"line", sp:l.sp, text: tr(l.text) }));
   if (st.choices && st.choices.length) queue.push({ kind:"choice", choices: st.choices, after: st.after || [] });
   else {
     if (st.after && st.after.length) {
       queue.push({ kind:"award", award: st.award, afterCount: st.after.length });
-      st.after.forEach((l) => queue.push({ kind:"line", sp:l.sp, text:l.text }));
+      st.after.forEach((l) => queue.push({ kind:"line", sp:l.sp, text: tr(l.text) }));
     } else queue.push({ kind:"award", award: st.award });
   }
 }
@@ -1903,7 +2199,7 @@ function renderChoice(item) {
   item.choices.forEach((c) => {
     const b = document.createElement("button");
     b.className = "choice-btn";
-    b.textContent = c.label;
+    b.textContent = tr(c.label);
     b.onclick = () => {
       const lines = [];
       if (c.flag) { S.flags = S.flags || {}; S.flags[c.flag] = true; }
@@ -1911,9 +2207,9 @@ function renderChoice(item) {
       cl.innerHTML = "";
       const t2 = el("storyText");
       t2.className = "story-text narr";
-      revealStoryText(t2, (c.result || "") + (lines.length ? "\n\n" + lines.map((l) => l[1]).join("\n") : ""));
+      revealStoryText(t2, (tr(c.result) || "") + (lines.length ? "\n\n" + lines.map((l) => l[1]).join("\n") : ""));
       setNext("继 续", () => {
-        item.after.forEach((l) => queue.unshift({ kind:"line", sp:l.sp, text:l.text }));
+        item.after.forEach((l) => queue.unshift({ kind:"line", sp:l.sp, text: tr(l.text) }));
         nextStory();
       });
       saveGame(true);
@@ -1943,7 +2239,7 @@ function renderBattleIntro(stage) {
   prepStage(stage);
   const t = el("storyText");
   t.className = "story-text";
-  t.textContent = "【" + stage.title + "】\n\n" + (stage.intro || "") +
+  t.textContent = "【" + tr(stage.title) + "】\n\n" + tr(stage.intro || "") +
     "\n\n敌方：" + (stage.enemyKeys || [stage.enemy]).map((k) => DATA.enemies[k].name).join("、");
   el("choiceList").innerHTML = "";
   setNext("进 入 战 斗", () => startBattle(stage));
@@ -2165,7 +2461,8 @@ function playerUnitFor(ally) {
     atkLevel: atk, defLevel: def, speed: spd,
     sp: ally.sp === undefined ? 20 : ally.sp,
     weapon: w, abilities: allyAbilities(ally, w),
-    coins: ally.coins || 4, isPlayer: true, ally: ally, color: ally.color, rarity: ally.rarity
+    coins: st.coins, isPlayer: true, ally: ally, color: ally.color, rarity: ally.rarity,
+
   });
 }
 
@@ -2275,7 +2572,7 @@ function startBattle(stage) {
   el("floatZone").innerHTML = "";
   show("battle");
   logLine("l-sys", "【" + stage.title + "】");
-  if (stage.intro) logLine("l-act", stage.intro);
+  if (stage.intro) logLine("l-act", tr(stage.intro));
   const note = DATA.enemies[keys[0]] && DATA.enemies[keys[0]].note;
   if (note) logLine("l-boss", note);
   if (assistList.length) assistBanner(assistList);
@@ -2385,8 +2682,16 @@ function autoActionFor(u) {
 
 /* ---------- 玩家编成 ---------- */
 function selectUnit(uid) {
-  uid = bareUid(uid);
-  const i = B.units.findIndex((u) => u.uid === uid);
+  /* 槽元素的 id 是 "ally_" + uid，而 uid 本身已经带前缀（ally_xxx / enemy_xxx），
+     所以传进来的可能是 "ally_ally_xxx" 这种两层前缀。
+     这里先按原样查，查不到再剥一层——不能无条件剥离，
+     否则 "ally_a2" 会被削成 "a2"，永远匹配不上，导致点了队友不切人。 */
+  const raw = String(uid || "");
+  let i = B.units.findIndex((u) => u.uid === raw);
+  if (i < 0) {
+    const bare = bareUid(raw);
+    i = B.units.findIndex((u) => u.uid === bare);
+  }
   if (i < 0) return;
   if (B.units[i].assist) { toast("援助角色由剧情操控，你无法指挥他。"); return; }
   B.sel = i;
@@ -3464,7 +3769,7 @@ function winBattle() {
   logLine("l-crit", "战斗结束 —— 你赢了。");
   if (B.assists && B.assists.length) assistLeaveLines(B.assists);
   const st = B.stage;
-  if (st.win) logLine("l-act", st.win);
+  if (st.win) logLine("l-act", tr(st.win));
   /* 特殊 BOSS：胜利则授予特殊角色，并恢复编队上限 */
   if (st.spBoss) {
     S.spActive = false;
@@ -3595,7 +3900,7 @@ function showResult(win) {
     lines.push(["l-sys", "（战果奖励经验 " + bonus + " 点）"]);
   } else {
     lines.push(["l-dead", "全员被带回后方。"]);
-    if (st.lose && st.lose.text) lines.push(["l-act", st.lose.text]);
+    if (st.lose && st.lose.text) lines.push(["l-act", tr(st.lose.text)]);
     const half = Math.round(((st.award && st.award.exp) || 0) * 0.4) + 20;
     if (arenaTier) lines.push(["l-sys", "无垠厅的胜负不计入传记，连胜已归零。"]);
     gainExp(half, lines);
@@ -3882,10 +4187,10 @@ function allyStats(a) {
   const lv = a.level || 1;
   return {
     hp: Math.round((a.base + lv * 46 + (w.atkBonus || 0) * 8 + (a.hpBonus || 0)) * BAL.playerHp),
-    atk: Math.round((8 + Math.floor(lv * 1.15) + (w.atkBonus || 0)) * BAL.playerAtk),
-    def: 5 + Math.floor(lv * 0.55),
+    atk: Math.round((8 + Math.floor(lv * 1.15) + (w.atkBonus || 0) + (a.atkBonus || 0)) * BAL.playerAtk),
+    def: 5 + Math.floor(lv * 0.55) + (a.defBonus || 0),
     spd: 6 + Math.floor(lv * 0.4) + (a.speedBonus || 0),
-    coins: Math.min(8, 4 + (w.coinCount || 0))
+    coins: Math.min(8, 4 + (w.coinCount || 0) + (a.coins || 0))
   };
 }
 function squadAllies() {
@@ -4489,6 +4794,33 @@ window.HengDebug = {
   openDifficulty: function () { openDifficulty(); },
   toTitle: function () { toTitle(); return UI.screen; },
   switchDiff: function (id) { switchDifficulty(id); return S ? S.difficulty : null; },
+  /* 仅调试/测试用：把当前会话语言强制成英文（不改页面、不落盘） */
+  /* 测试用：直接开某个章节的某一幕战斗 */
+  allyStats: function (a) { return allyStats(a); },
+  grantSp: function (id) { grantSpReward(id); return (S.allies || []).length; },
+  party: function () { return B ? B.units.map(function (u) { return { uid: u.uid, name: u.name, ally: !!u.ally, assist: !!u.assist, alive: !!u.alive }; }) : []; },
+  renderBattleNow: function () { if (B) renderBattle(); return !!B; },
+  startBattleStage: function (ci, si) {
+    const ch = DATA.chapters[ci];
+    if (!ch) return null;
+    const st = (ch.stages || [])[si];
+    if (!st) return null;
+    UI.selectedChapter = ci;
+    startBattle(st);
+    return "battle";
+  },
+  forceLangEn: function () { DATA.forcedLang = "en"; if (S) S.lang = "en"; return curLang(); },
+  forceLangZh: function () { DATA.forcedLang = "zh"; if (S) S.lang = null; return curLang(); },
+  nextTier: function () { return nextRestartTier(); },
+  canRestart: function (id) { return canRestartTo(id); },
+  forceSwitch: function (id) { switchDifficulty(id); return S ? S.difficulty : null; },
+  selectChapter: function (i) { UI.selectedChapter = i; },
+  renderMap: function () { renderMap(); },
+  restartBtnText: function () {
+    if (!restartRowEl || !restartRowEl.children || !restartRowEl.children.length) return "";
+    return String(restartRowEl.children[0].textContent || "");
+  },
+  hasRestartRow: function () { return !!restartRowEl; },
   openCommissions: function () { openCommissions(); },
   commissionState: function () {
     const cl = S.commissionClaimed || {};
@@ -4502,6 +4834,13 @@ window.HengDebug = {
     return true;
   },
   setTextSpeed: function (v) { return setTextSpeed(v); },
+  lang: function () { return curLang(); },
+  langPref: function () { return loadLangPref(); },
+  setLang: function (c) { setLang(c); return curLang(); },
+  localizeDom: function () { relocalize(); return curLang(); },
+  enPhrases: function () { return enPhraseList().length; },
+  tr: function (s) { return tr(s); },
+  openSettings2: function () { openSettings(); },
   allyPlans: function () {
     if (!B) return [];
     return B.units.map(function (u) {
@@ -4720,11 +5059,14 @@ function openDifficulty() {
       '<span class="q-npc">' + (cur2 ? "当前" : (unlocked ? "可切换" : "未解锁")) + "</span></div>" +
       '<div class="q-brief">' + d.desc + "</div>" +
       (unlocked ? "" : '<div class="q-award">解锁条件：' + why + "</div>") +
-      (unlocked && !cur2 ? '<div class="q-act"><button class="btn btn-tiny btn-primary" data-setdiff="' + id + '">切 换 到 此 难 度</button></div>' : "") +
+      (unlocked && !cur2 && diffRank(id) > diffRank(cur)
+        ? '<div class="q-act"><button class="btn btn-tiny btn-primary" data-setdiff="' + id + '">重 启 主 线 到 此 难 度</button></div>'
+        : (unlocked && !cur2 ? '<div class="q-award">难度不能回退 —— 已锁定在【' + DATA.difficulties[cur].name + '】</div>' : "")) +
       "</div>";
   }).join("");
   openModal("难度模式",
-    "<p style='color:var(--muted)'>难度只影响新进入的战斗。已经打过的关卡不会追溯，可以随时切回通常。</p>" +
+    "<p style='color:var(--muted)'>难度<b>只能往上升</b>，不能回退。重启主线会清空关卡进度，" +
+      "但保留等级、功勋、队友、兵装与招募到的角色。</p>" +
     "<div class='qgrid'>" + rows + "</div>" +
     "<h4>通关记录</h4><div class='stat-grid'>" +
       "<div class='stat-box'><div class='s-name'>通常</div><div class='s-val'>" + (S.gameCleared ? "已通关" : "—") + "</div></div>" +
@@ -5621,6 +5963,10 @@ function boot() {
     else if (act === "commissions") openCommissions();
     else if (act === "duel") openDuel();
     else if (act === "spboss") openSpecialBosses();
+    else if (act === "lang-en") {
+      /* 标题界面选英文：只是跳到英文版，不写偏好，免得之后又自动跳回来 */
+      location.href = "index.en.html";
+    }
     else if (act === "slots") openSaveSlots();
     else if (act === "save") openSaveSlots();
     else if (act === "quit") quitGame();
@@ -5630,7 +5976,10 @@ function boot() {
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && el("modal").classList.contains("on")) closeModal();
   });
+  /* 语言只在标题界面决定：中文版就是中文版，不再按偏好自动跳转，
+     否则「标题用中文、进游戏变英文」会反复发生。 */
   toTitle();
+  try { relocalize(); } catch (e) {}
   // 首次进入游戏弹出教程
   if (window.HengFx && window.HengFx.maybeFirstRun) {
     setTimeout(function () {
