@@ -91,13 +91,14 @@ function gainExp(amount, lines) {
   S.exp += amount;
   lines.push(["l-sys", "获得经验 " + amount + " 点。"]);
   let ups = 0;
-  while (S.exp >= expNeeded(S.level) && S.level < 60) {
+  while (S.exp >= expNeeded(S.level) && S.level < MAX_LEVEL) {
     S.exp -= expNeeded(S.level);
     S.level++;
     S.points += 2;
     ups++;
   }
   if (ups) {
+    try { syncHero(); } catch (e) {}
     const bs = baseStats(S);
     S.hp = bs.hp;
     lines.push(["l-crit", "等级提升至 Lv." + S.level + "（+" + ups * 2 + " 潜能点），生命已完全恢复。"]);
@@ -313,6 +314,11 @@ function newState(name, origin, school, oath) {
     chapters: {}, chapterIndex: 0, stage: 0 };
   st.allies = starterAllies();
   st.squad = [st.allies[0].id];
+  /* 专属角色：以玩家名字命名，占一个上场名额 */
+  try {
+    const h = heroAlly();
+    if (h) { st.allies.unshift(h); st.squad.unshift(h.id); }
+  } catch (e) {}
   st.dev = false;
   st.animSpeed = "fast";
   st.bossWins = {};
@@ -1060,8 +1066,15 @@ function startSpecialBoss(bossId, draftSquad) {
   if (!e) { toast("BOSS 数据缺失。"); return; }
   /* 先把玩家原来的编队收好，再把草稿作为这一战的出战名单。
      这样战斗结束后能精确还原，也不会污染全功率模式之外的编队。 */
+  /* 先把草稿里失效的成员剔掉，再校验人数。
+     以前是先锁 BOSS 再开战，一旦编队解析为空就会「点了没反应」而且 BOSS 已经锁死。 */
+  const clean = (draftSquad || S.squad || []).filter((id) => allyById(id)).slice(0, SP_SQUAD_CAP);
+  if (!clean.length) {
+    toast("这一战需要至少 1 名可用成员。先去「编队」安排上场的人。");
+    return;
+  }
   S.spPrevSquad = (S.squad || []).slice();
-  if (draftSquad && draftSquad.length) S.squad = draftSquad.slice(0, SP_SQUAD_CAP);
+  S.squad = clean;
   S.specialBoss = bossId;            /* 立刻锁定：不可反悔 */
   S.spActive = true;                 /* 编队上限临时扩到 8 */
   closeModal();
@@ -1099,6 +1112,11 @@ function startSpecialBoss(bossId, draftSquad) {
     });
     renderBattle();
     logLine("l-boss", "【" + b.name + "】封印全开。这一战你的编队扩到 " + SP_SQUAD_CAP + " 人，但另一方已经被你关上了门。");
+  }
+  /* 开战后再确认一次：真的进了战斗场景才算成功 */
+  if (!B || !B.enemies || !B.enemies.length || (typeof UI === "undefined" || UI.screen !== "battle")) {
+    throw new Error("战斗场景没有建立（B=" + (B ? "有" : "无") +
+      " 敌人=" + (B && B.enemies ? B.enemies.length : 0) + "）");
   }
   } catch (err) {
     /* 开战失败：把编队与锁定状态回滚，并明确告诉玩家出了什么错 */
@@ -1537,7 +1555,7 @@ function openSettings() {
     const dock = document.getElementById("dockMusic");
     if (dock) dock.classList.toggle("off", S && S.music === false);
     if (S && S.music === false && window.HengAudio) window.HengAudio.stop();
-    else if (window.HengAudio) window.HengAudio.forScreen(currentScreen());
+    else if (window.HengAudio) window.HengAudio.forScreen((typeof UI !== "undefined" && UI.screen) || "map");
     openSettings();
   });
   bind("sfx", () => {
@@ -1909,6 +1927,8 @@ function applyLoadedSave(st) {
   if (!S.allied) S.allied = {};
   if (!S.allies) { S.allies = starterAllies(); S.squad = [S.allies[0].id]; }
   if (!S.squad) S.squad = (S.allies[0] ? [S.allies[0].id] : []);
+  /* 老存档没有专属角色：这里补建并同步等级 */
+  try { syncHero(); } catch (e) {}
   if (!S.weapons) S.weapons = [];
   if (!S.weaponOf) S.weaponOf = {};
   if (!S.bag) S.bag = {};
@@ -2547,7 +2567,7 @@ function unitSkillList(u) {
    ============================================================ */
 function startBattle(stage) {
   const squad = squadUnits();
-  if (!squad.length) { toast("编队是空的。先到「编队」里安排上场成员。"); return; }
+  if (!squad.length) { toast("编队是空的。先到「编队」里安排上场成员。"); return false; }
   B = {
     stage: stage, round: 0, phase: "assign", over: false, locked: false,
     units: [], enemies: [], enemyDefs: {}, sel: 0, selSkill: 0, log: [],
@@ -4059,6 +4079,134 @@ function useItemOn(it, u) {
     if (t) t.buffs.push({ stat:"def", mult:0.75, turns:2, label:"防御↓" });
   }
 }
+/* ---------- 经验罐：按「当前升级所需」的比例给经验 ----------
+   这样低级罐在高等级也不会变成废品。 */
+/* ---------- 经验罐：先选角色，再确认使用 ---------- */
+/* 单个队员的经验推进（队员各自记 exp / level） */
+function allyGiveExp(a, amount) {
+  if (!a) return 0;
+  a.exp = Math.max(0, Math.floor(a.exp || 0));
+  a.level = Math.max(1, Math.floor(a.level || 1));
+  a.exp += amount;
+  let ups = 0;
+  while (a.level < MAX_LEVEL && a.exp >= expNeeded(a.level)) {
+    a.exp -= expNeeded(a.level);
+    a.level++;
+    ups++;
+  }
+  if (a.level >= MAX_LEVEL) a.exp = 0;
+  return ups;
+}
+/* 所有可以吃经验罐的角色：专属角色 + 招募到的队员 */
+function jarTargets() {
+  if (!S) return [];
+  S.allies = S.allies || [];
+  if (typeof syncHero === "function") { try { syncHero(); } catch (e) {} }
+  return (S.allies || []).slice();
+}
+/* 点「使用」→ 弹出角色选择 */
+function giveExpJar(id) {
+  const it = DATA.items.find((x) => x.id === id);
+  if (!it || (it.kind !== "exp" && it.kind !== "lvup")) { toast("这不是经验罐。"); return 0; }
+  if (!S) return 0;
+  if (!(S.bag || {})[id]) { toast("没有这个道具。"); return 0; }
+  const list = jarTargets();
+  if (!list.length) { toast("没有可以使用的角色。"); return 0; }
+  UI.jarPick = { jar: id, ally: list[0].id };
+  openJarPicker();
+  return 0;
+}
+function openJarPicker() {
+  const P = UI.jarPick;
+  if (!P) return;
+  const it = DATA.items.find((x) => x.id === P.jar);
+  if (!it) return;
+  const list = jarTargets();
+  if (!list.some((a) => a.id === P.ally)) P.ally = list.length ? list[0].id : null;
+  const target = list.find((a) => a.id === P.ally);
+
+  let html = "<p style='color:var(--muted)'>" + tr(it.name) + "：" + tr(it.desc).replace(/\n/g, "<br>") + "</p>";
+  html += "<p>当前持有 <b class='k'>×" + ((S.bag || {})[P.jar] || 0) + "</b>。选择要给哪位角色使用：</p>";
+  html += "<div class='codex-grid'>";
+  list.forEach((a) => {
+    const st = allyStats(a);
+    const on = (a.id === P.ally);
+    const role = (ROLE_NAMES[roleOfAlly(a)] || "战斗型");
+    html += "<div class='codex-card" + (on ? " hot" : "") + "' data-jarpick='" + a.id + "'" +
+      (on ? " style='border-color:var(--gold);background:rgba(214,178,90,.12)'" : "") + ">" +
+      "<div class='cc-name' style='color:" + (a.color || "#ddd") + "'>" + a.name + (on ? " ◆" : "") + "</div>" +
+      "<div class='cc-sub'>" + role + " ｜ Lv." + a.level + " ｜ " +
+        (DATA.recruit.tiers[a.rarity] || DATA.recruit.tiers[a.tier] || {}).name + "</div>" +
+      "<div class='cc-sub'>生命 " + st.hp + " ｜ 攻击等级 " + st.atk + "</div>" +
+      "<div class='cc-sub' style='color:var(--muted)'>经验 " + Math.floor(a.exp || 0) + " / " +
+        (a.level >= MAX_LEVEL ? "满级" : expNeeded(a.level)) + "</div></div>";
+  });
+  html += "</div>";
+  if (target) {
+    if (it.kind === "lvup") {
+      const n = Math.min(it.val || 1, MAX_LEVEL - target.level);
+      html += "<p style='color:var(--gold2)'>给 <b>" + target.name + "</b> 使用 → 等级 " +
+        target.level + " → " + (target.level + Math.max(0, n)) +
+        (n > 0 ? "（+" + n + "）" : "（已满级）") + "</p>";
+    } else {
+      const amount = it.val || 0;
+      let sim = target.level, rem = (target.exp || 0) + amount, ups = 0;
+      while (sim < MAX_LEVEL && rem >= expNeeded(sim)) { rem -= expNeeded(sim); sim++; ups++; }
+      html += "<p style='color:var(--gold2)'>给 <b>" + target.name + "</b> 使用 → 经验 +" + amount +
+        (ups > 0 ? "，等级 " + target.level + " → " + sim + "（+" + ups + "）" : "，不满一级") + "</p>";
+    }
+  }
+  html += "<p><button class='btn btn-primary' data-jarok='1'>确 定 使 用</button> " +
+    "<button class='btn btn-tiny' data-jarcancel='1'>取 消</button></p>";
+  openModal("使用 " + it.name, html);
+
+  $$("#modalBody [data-jarpick]").forEach((c) => {
+    c.onclick = () => { P.ally = c.getAttribute("data-jarpick"); openJarPicker(); };
+  });
+  $$("#modalBody [data-jarok]").forEach((c) => {
+    c.onclick = () => applyJar(P.jar, P.ally);
+  });
+  $$("#modalBody [data-jarcancel]").forEach((c) => {
+    c.onclick = () => { UI.jarPick = null; openBag(); };
+  });
+}
+/* 确认使用 */
+function applyJar(jarId, allyId) {
+  const it = DATA.items.find((x) => x.id === jarId);
+  const a = (S.allies || []).find((x) => x.id === allyId);
+  if (!it || !a) { toast("选择有误。"); return 0; }
+  if (!(S.bag || {})[jarId]) { toast("没有这个道具了。"); return 0; }
+  if (a.level >= MAX_LEVEL) { toast(a.name + " 已经满级了。"); return 0; }
+  S.bag[jarId]--;
+  if (S.bag[jarId] <= 0) delete S.bag[jarId];
+  const before = a.level;
+  let amount, ups;
+  if (it.kind === "lvup") {
+    /* 时间经验罐：强行提升固定等级 */
+    amount = 0;
+    ups = Math.min(it.val || 1, MAX_LEVEL - a.level);
+    a.level += ups;
+    if (a.level >= MAX_LEVEL) { a.level = MAX_LEVEL; a.exp = 0; }
+    ups = a.level - before;
+  } else {
+    /* 普通经验罐：固定经验值 */
+    amount = it.val || 0;
+    ups = allyGiveExp(a, amount);
+  }
+  /* 如果给的是专属角色，本人等级也跟着走 */
+  if (a.id === HERO_ID) {
+    S.level = a.level;
+    S.exp = a.exp || 0;
+    syncHero();
+  }
+  UI.jarPick = null;
+  saveGame(true);
+  toast(a.name + "：" + it.name + " → " +
+    (it.kind === "lvup" ? "等级 " + before + " → " + a.level + "（+" + ups + "）"
+                        : "经验 +" + amount + (ups > 0 ? "，等级 " + before + " → " + a.level + "（+" + ups + "）" : "")));
+  openBag();
+  return amount;
+}
 function gainItem(id, n) {
   S.bag = S.bag || {};
   S.bag[id] = (S.bag[id] || 0) + (n || 1);
@@ -4185,16 +4333,173 @@ function allyPower(a) {
 function allyStats(a) {
   const w = DATA.weapons.find((x) => x.id === a.weaponId) || DATA.weapons[0];
   const lv = a.level || 1;
+  const R = ROLE_MOD[roleOfAlly(a)] || ROLE_MOD.battle;
   return {
-    hp: Math.round((a.base + lv * 46 + (w.atkBonus || 0) * 8 + (a.hpBonus || 0)) * BAL.playerHp),
-    atk: Math.round((8 + Math.floor(lv * 1.15) + (w.atkBonus || 0) + (a.atkBonus || 0)) * BAL.playerAtk),
-    def: 5 + Math.floor(lv * 0.55) + (a.defBonus || 0),
-    spd: 6 + Math.floor(lv * 0.4) + (a.speedBonus || 0),
+    hp: Math.round((a.base + lv * 46 + (w.atkBonus || 0) * 8 + (a.hpBonus || 0)) * BAL.playerHp * R.hp),
+    atk: Math.round((8 + Math.floor(lv * 1.15) + (w.atkBonus || 0) + (a.atkBonus || 0)) * BAL.playerAtk * R.atk),
+    def: Math.round((5 + Math.floor(lv * 0.55) + (a.defBonus || 0)) * R.def),
+    spd: Math.round((6 + Math.floor(lv * 0.4) + (a.speedBonus || 0)) * R.spd),
     coins: Math.min(8, 4 + (w.coinCount || 0) + (a.coins || 0))
   };
 }
+/* ---------- 专属角色：以玩家自己命名，等级自动跟随玩家 ---------- */
+const HERO_ID = "hero_self";
+const MAX_LEVEL = 200;              /* 所有角色的满级 */
+/* 中文 school 标签 -> school 键 */
+const SCHOOL_CN2ID = { "剑":"sword", "弓":"bow", "刃":"blade", "枪":"spear", "斧":"axe",
+                       "拳":"fist", "腿":"leg", "法":"arcane", "械":"tech", "医":"medic", "通用":"common" };
+function schoolIdOf(w) {
+  if (!w) return null;
+  const cn = String(w.school || "");
+  for (const k in SCHOOL_CN2ID) if (cn.indexOf(k) >= 0) return SCHOOL_CN2ID[k];
+  return null;
+}
+/* 中文 type 标签 -> 职业类型（战/辅/防） */
+const TYPE_CN2ROLE = { "拳":"battle", "腿":"battle", "剑":"battle", "刃":"battle",
+                       "枪":"battle", "斧":"battle", "弓":"support", "法":"support",
+                       "械":"support", "医":"defense", "盾":"defense" };
+/* 专属角色的稀有度随等级提升，最高到「准·恒永者级」 */
+const HERO_TIER_STEPS = [
+  { at: 1,   rarity: "common"  },
+  { at: 15,  rarity: "advance" },
+  { at: 40,  rarity: "elite"   },
+  { at: 80,  rarity: "relic"   },
+  { at: 120, rarity: "eternal" },
+  { at: 160, rarity: "quasi"   }
+];
+/* 角色定位：战斗型 / 辅助型 / 防御型 */
+const ROLE_NAMES = { battle: "战斗型", support: "辅助型", defense: "防御型" };
+function roleOfAlly(a) {
+  if (!a) return "battle";
+  if (a.role && ROLE_NAMES[a.role]) return a.role;
+  const w = DATA.weapons.find((x) => x.id === (a.weaponId || ""));
+  const t = String((w && w.type) || "");
+  for (const k in TYPE_CN2ROLE) if (t.indexOf(k) >= 0) return TYPE_CN2ROLE[k];
+  const j = a.job || "";
+  if (j === "healer" || j === "mage") return "support";
+  if (j === "mechanic") return "defense";
+  return "battle";
+}
+/* 分类带来的小幅特性（不改变基础数值，只做倾向） */
+const ROLE_MOD = {
+  battle:  { atk: 1.06, hp: 1.00, def: 1.00, spd: 1.00 },
+  support: { atk: 0.94, hp: 1.00, def: 1.00, spd: 1.08 },
+  defense: { atk: 0.92, hp: 1.12, def: 1.18, spd: 0.96 }
+};
+function heroRarityFor(level) {
+  let r = "common";
+  HERO_TIER_STEPS.forEach((s) => { if ((level || 1) >= s.at) r = s.rarity; });
+  return r;
+}
+function heroWeaponId() {
+  try {
+    const sch = (DATA.schools || {})[S && S.school];
+    if (sch && sch.weapons && sch.weapons.length) return sch.weapons[0];
+  } catch (e) {}
+  return "sword_std";
+}
+/* 专属角色当前掌握的体系：初始一个，15 级可加第二个，最多两个 */
+function heroSchools() {
+  if (!S) return [];
+  if (!S.heroSchools || !S.heroSchools.length) {
+    S.heroSchools = [S.school || "sword"];
+  }
+  return S.heroSchools.filter((x) => DATA.schools[x]).slice(0, 2);
+}
+function heroCanAddSchool() { return (S && S.level >= 15) && heroSchools().length < 2; }
+/* 专属角色能用的武器：只限自己体系的那些 */
+function heroWeaponPool() {
+  const ids = heroSchools();
+  return DATA.weapons.filter((w) => {
+    const sid = schoolIdOf(w);
+    return sid && ids.indexOf(sid) >= 0;
+  });
+}
+function heroAlly() {
+  if (!S) return null;
+  const schools = heroSchools();
+  const pool = heroWeaponPool();
+  let w = DATA.weapons.find((x) => x.id === S.heroWeapon);
+  if (!w || pool.indexOf(w) < 0) w = pool[0] || DATA.weapons[0];
+  return {
+    id: HERO_ID,
+    name: S.name || "无名者",
+    tier: "hero", rarity: heroRarityFor(S.level || 1),
+    level: S.level || 1,
+    glyph: (S.name || "无").slice(0, 1),
+    color: "#ffe9a8",
+    base: 56,
+    hpBonus: 0, atkBonus: 6, defBonus: 3, speedBonus: 3, coins: 0,
+    job: (DATA.jobs[S && S.job] ? S.job : null) || weaponJob(w.id) || "warrior",
+    weaponId: w.id,
+    schools: schools.slice(),
+    loadout: null, summonId: null,
+    note: "专属角色 · 等级跟随本人 · 体系 " + schools.map((k) => DATA.schools[k].name).join(" / "),
+    hp: null, sp: 24, isHero: true
+  };
+}
+/* 换体系 / 换武器 */
+function heroSetWeapon(id) {
+  if (!S) return false;
+  const w = DATA.weapons.find((x) => x.id === id);
+  if (!w) return false;
+  const pool = heroWeaponPool();
+  if (pool.indexOf(w) < 0) { toast("这不是你体系里的武器（只能换本体系的）。"); return false; }
+  S.heroWeapon = id;
+  const a = (S.allies || []).find((x) => x.id === HERO_ID);
+  if (a) { const f = heroAlly(); a.weaponId = f.weaponId; a.job = f.job; a.note = f.note; }
+  saveGame(true);
+  toast("已换装：" + w.name);
+  return true;
+}
+function heroAddSchool(sid) {
+  if (!S) return false;
+  if (!DATA.schools[sid]) return false;
+  const cur = heroSchools();
+  if (cur.indexOf(sid) >= 0) { toast("已经有这个体系了。"); return false; }
+  if (!heroCanAddSchool()) {
+    toast("要到 15 级才能开第二个体系，而且最多两个。");
+    return false;
+  }
+  S.heroSchools = cur.concat([sid]);
+  syncHero();
+  saveGame(true);
+  toast("已开新体系：" + DATA.schools[sid].name);
+  return true;
+}
+/* 同步：改名/升级后刷新，并保证他在上场名单里 */
+function syncHero(addToSquad) {
+  if (!S) return null;
+  S.allies = S.allies || [];
+  let a = S.allies.find((x) => x.id === HERO_ID);
+  if (!a) {
+    a = heroAlly();
+    if (!a) return null;
+    S.allies.unshift(a);
+    if (addToSquad !== false) {
+      S.squad = S.squad || [];
+      if (S.squad.indexOf(HERO_ID) < 0) S.squad.unshift(HERO_ID);
+    }
+    return a;
+  }
+  const fresh = heroAlly();
+  a.name = fresh.name; a.glyph = fresh.glyph; a.level = fresh.level;
+  a.weaponId = fresh.weaponId; a.job = fresh.job;
+  a.base = fresh.base; a.atkBonus = fresh.atkBonus;
+  a.defBonus = fresh.defBonus; a.speedBonus = fresh.speedBonus;
+  if (addToSquad !== false) {
+    S.squad = S.squad || [];
+    if (S.squad.indexOf(HERO_ID) < 0) S.squad.unshift(HERO_ID);
+  }
+  return a;
+}
 function squadAllies() {
-  return (S.squad || []).map((id) => allyById(id)).filter(Boolean);
+  /* 过滤掉解析不到的 id：草稿或老存档里可能残留已删除的成员，
+     不过滤的话会出现「编队是空的」而战不起来。 */
+  const all = (S.squad || []).map((id) => allyById(id)).filter(Boolean);
+  /* 顺手把无效 id 从名单里剔掉，保持存档干净 */
+  S.squad = all.map((a) => a.id);
+  return all;
 }
 function squadUnits() {
   return squadAllies().map((a) => playerUnitFor(a));
@@ -4217,7 +4522,7 @@ function openSquad() {
     const w = DATA.weapons.find((x) => x.id === a.weaponId) || DATA.weapons[0];
     html += "<div class='codex-card hot' data-unfield='" + id + "'>" +
       "<div class='cc-name' style='color:" + a.color + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
-      "<div class='cc-sub'>Lv." + a.level + " ｜ 生命 " + st.hp + " ｜ 攻击等级 " + st.atk + " ｜ 速度 " + st.spd + " ｜ 硬币 " + st.coins + "</div>" +
+      "<div class='cc-sub'>[" + (ROLE_NAMES[roleOfAlly(a)] || "战斗型") + "] Lv." + a.level + " ｜ 生命 " + st.hp + " ｜ 攻击等级 " + st.atk + " ｜ 速度 " + st.spd + " ｜ 硬币 " + st.coins + "</div>" +
       "<div class='cc-sub'>兵装：" + w.name + "</div>" +
       "<div class='cc-sub' style='color:var(--gold2)'>点击 → 撤下</div></div>";
   });
@@ -4456,14 +4761,18 @@ function canBuyWeapon(w) {
 function openBag() {
   if (!S) return;
   S.bag = S.bag || {};
-  let html = "<p style='color:var(--muted)'>道具在战斗里可用（占用该成员的编成，不额外耗回合）。击败敌人与刷怪都会掉落。</p>";
+  let html = "<p style='color:var(--muted)'>道具在战斗里可用（占用该成员的编成，不额外耗回合）。击败敌人与刷怪都会掉落。" +
+    "经验罐可以在这里直接使用。</p>";
   html += "<h4>持行库</h4><div class='codex-grid'>";
   const owned = DATA.items.filter((it) => (S.bag[it.id] || 0) > 0);
   if (!owned.length) html += "<p class='muted'>背包是空的。去无垠厅刷怪，或推进列传。</p>";
   owned.forEach((it) => {
+    const useBtn = (it.kind === "exp" || it.kind === "lvup")
+      ? "<div class='cc-sub'><button class='btn btn-tiny btn-primary' data-usejar='" + it.id + "'>使 用</button></div>"
+      : "";
     html += "<div class='codex-card'><div class='cc-name'>" + it.name + " ×" + S.bag[it.id] + "</div>" +
       "<div class='cc-sub'>" + (DATA.weaponRarity[it.rarity] || {}).name + "</div>" +
-      "<div class='cc-sub' style='color:var(--muted)'>" + it.desc + "</div></div>";
+      "<div class='cc-sub' style='color:var(--muted)'>" + it.desc + "</div>" + useBtn + "</div>";
   });
   html += "</div><h4>可用道具一览</h4><div class='codex-grid'>";
   DATA.items.filter((it) => !(S.bag[it.id] > 0)).forEach((it) => {
@@ -4474,6 +4783,12 @@ function openBag() {
   html += "</div>";
   html += "<p style='margin-top:14px'><button class='btn btn-tiny' data-buykit='1'>补给：医疗包 +2（200 功勋）</button> " +
     "<button class='btn btn-tiny' data-buykit='2'>补给：思晓雅抄的书 +2（300 功勋）</button></p>";
+  html += "<p style='margin-top:6px'><b class='k'>恒组织科技部 · 经验罐</b>（随时可用，按当前等级需求结算）</p>" +
+    "<p><button class='btn btn-tiny' data-buyjar='jar_low'>低级经验罐 ×1（400 功勋）</button> " +
+    "<button class='btn btn-tiny' data-buyjar='jar_mid'>中级经验罐 ×1（1000 功勋）</button> " +
+    "<button class='btn btn-tiny' data-buyjar='jar_high'>高级经验罐 ×1（2200 功勋）</button></p>";
+  html += "<p><button class='btn btn-tiny' data-buyjar='jar_t1'>稀释后的时间经验罐 ×1（6000 功勋）</button> " +
+    "<span style='color:var(--muted)'>非稀释的时间经验罐只能在真实模式的第 3、4、5 关打到。</span></p>";
   openModal("道具", html);
   $$("#modalBody [data-buykit]").forEach((c) => {
     c.onclick = () => {
@@ -4484,6 +4799,23 @@ function openBag() {
       S.honor -= cost;
       ids.forEach((id) => gainItem(id, 2));
       toast("补给已入库。");
+      saveGame(true); renderHud(); openBag();
+    };
+  });
+  /* 经验罐：随时可用，直接加经验 */
+  $$("#modalBody [data-usejar]").forEach((c) => {
+    c.onclick = () => giveExpJar(c.getAttribute("data-usejar"));
+  });
+  /* 经验罐补给：花功勋购买 */
+  const JAR_COST = { jar_low: 400, jar_mid: 1000, jar_high: 2200, jar_t1: 6000 };
+  $$("#modalBody [data-buyjar]").forEach((c) => {
+    c.onclick = () => {
+      const id = c.getAttribute("data-buyjar");
+      const cost = JAR_COST[id] || 400;
+      if ((S.honor || 0) < cost) { toast("功勋不足（需要 " + cost + "）。"); return; }
+      S.honor -= cost;
+      gainItem(id, 1);
+      toast("已入库：" + (DATA.items.find((x) => x.id === id) || {}).name);
       saveGame(true); renderHud(); openBag();
     };
   });
@@ -4573,6 +4905,45 @@ function openSkills() {
   const pool = knownAbilities();
   let html = "<p style='color:var(--muted)'>技能栏 <b style='color:var(--gold2)'>" + S.equipped.length + " / " + MAX_EQUIP +
     "</b>。点左边的技能换上，点右边已装备的技能卸下。战斗中只能用技能栏里的技能。</p>";
+  /* ---------- 专属角色：体系与武器 ---------- */
+  (function () {
+    const hs = heroSchools();
+    const pool = heroWeaponPool();
+    const cur = (heroAlly() || {}).weaponId;
+    html += "<h4>专属角色 · 体系与武器（" + (S.name || "无名者") + "）</h4>";
+    html += "<p style='color:var(--muted)'>体系 " + hs.length + " / 2。" +
+      (heroCanAddSchool() ? "到 15 级可以再开一个体系（最多两个）。" : "（已满或未到 15 级）") +
+      " 武器只能换本体系匹配的。</p>";
+    html += "<div class='codex-grid'>";
+    hs.forEach((sid) => {
+      const sc = DATA.schools[sid];
+      html += "<div class='codex-card'><div class='cc-name'>" + sc.name + "</div>" +
+        "<div class='cc-sub'>核心：" + sc.core + "</div>" +
+        "<div class='cc-sub' style='color:var(--muted)'>" + sc.desc + "</div></div>";
+    });
+    if (heroCanAddSchool()) {
+      DATA.schoolOrder === undefined;
+      Object.keys(DATA.schools).forEach((sid) => {
+        if (hs.indexOf(sid) >= 0) return;
+        html += "<div class='codex-card locked'><div class='cc-name'>+ " + DATA.schools[sid].name + "</div>" +
+          "<div class='cc-sub'><button class='btn btn-tiny btn-primary' data-addschool='" + sid + "'>开 此 体 系</button></div></div>";
+      });
+    }
+    html += "</div>";
+    html += "<div class='codex-grid'>";
+    pool.forEach((w) => {
+      const on = (w.id === cur);
+      html += "<div class='codex-card" + (on ? " hot" : "") + "'" +
+        (on ? " style='border-color:var(--gold);background:rgba(214,178,90,.12)'" : "") + ">" +
+        "<div class='cc-name'>" + w.name + (on ? " ◆" : "") + "</div>" +
+        "<div class='cc-sub'>攻击 +" + (w.atkBonus || 0) + " ｜ 硬币 " + (w.coinCount || 0) + "</div>" +
+        (on ? "<div class='cc-sub' style='color:var(--gold2)'>当前武器</div>"
+            : "<div class='cc-sub'><button class='btn btn-tiny' data-heroweapon='" + w.id + "'>换 上</button></div>") +
+        "</div>";
+    });
+    html += "</div>";
+  })();
+
   html += "<h4>已装备 · 战斗技能栏</h4><div class='codex-grid'>";
   if (!S.equipped.length) html += "<p class='muted'>（空）</p>";
   S.equipped.forEach((id) => { html += abilityCard(id, "equipped"); });
@@ -4598,6 +4969,12 @@ function openSkills() {
       u.chain.splice(parseInt(cs.getAttribute("data-rm"), 10), 1);
       renderBattle();
     };
+  });
+  $$("#modalBody [data-heroweapon]").forEach((c) => {
+    c.onclick = () => { heroSetWeapon(c.getAttribute("data-heroweapon")); openSkills(); };
+  });
+  $$("#modalBody [data-addschool]").forEach((c) => {
+    c.onclick = () => { heroAddSchool(c.getAttribute("data-addschool")); openSkills(); };
   });
   $$("#modalBody [data-abil]").forEach((c) => {
     c.onclick = () => {
@@ -4797,6 +5174,11 @@ window.HengDebug = {
   /* 仅调试/测试用：把当前会话语言强制成英文（不改页面、不落盘） */
   /* 测试用：直接开某个章节的某一幕战斗 */
   allyStats: function (a) { return allyStats(a); },
+  expNeed: function (lv) { return expNeeded(lv); },
+  useJar: function (id) { return giveExpJar(id); },
+  applyJar: function (jar, ally) { return applyJar(jar, ally); },
+  syncHero: function () { const h = syncHero(); return h ? h.level : null; },
+  openBag2: function () { openBag(); return true; },
   grantSp: function (id) { grantSpReward(id); return (S.allies || []).length; },
   party: function () { return B ? B.units.map(function (u) { return { uid: u.uid, name: u.name, ally: !!u.ally, assist: !!u.assist, alive: !!u.alive }; }) : []; },
   renderBattleNow: function () { if (B) renderBattle(); return !!B; },
@@ -5219,6 +5601,22 @@ function rollDrops(enemies) {
       got[mid] = (got[mid] || 0) + n;
     }
   });
+  /* 恒组织科技部的经验罐：小概率从战斗里掉 */
+  const jarRoll = Math.random();
+  if (jarRoll < 0.06) gainItem("jar_high", 1);
+  else if (jarRoll < 0.20) gainItem("jar_mid", 1);
+  else if (jarRoll < 0.45) gainItem("jar_low", 1);
+
+  /* 非稀释的时间经验罐：只有真实模式的第 3 / 4 / 5 关才会掉 */
+  try {
+    /* 用 S.chapterIndex（正在打的传），不用 UI.selectedChapter（玩家可能点了别的传看） */
+    const chIdx = (S && typeof S.chapterIndex === "number") ? S.chapterIndex : -1;
+    const inTrue = (diffIdRaw() === "true") && (chIdx === 2 || chIdx === 3 || chIdx === 4);
+    if (inTrue && Math.random() < 0.22) {
+      gainItem("jar_t5", 1);
+      logLine("l-crit", "拾得：非稀释的时间经验罐 ×1（真实模式）");
+    }
+  } catch (e) {}
   const ks = Object.keys(got);
   if (ks.length) {
     logLine("l-sys", "素材：" + ks.map((k) => DATA.materials[k].icon + " " + DATA.materials[k].name + " ×" + got[k]).join("　"));
@@ -5879,6 +6277,7 @@ function newGame(dev) {
     devUnlockAll();
     toast("开发者模式已开启：全角色 / 全剧情 / 全技能 / 全兵装解锁。");
   }
+  try { syncHero(); } catch (e) {}
   UI.selectedChapter = 0;
   normalizeAllyJobs();
   equipList();

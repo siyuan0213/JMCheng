@@ -1953,6 +1953,27 @@ DATA.weaponRarity = {
 };
 DATA.weapons = [
   /* 拳·腿 —— 无兵装，格斗 */
+/* ---------- 扩展兵装 ---------- */
+  { id:"sword_will",   name:"恒之长剑·意志", type:"剑", school:"剑", rarity:"elite",
+    atk:11, coin:5, sanity:1, coinCount:5, desc:"剑势不散。持有者越是不退，它越沉。", atkBonus:11 },
+  { id:"bow_storm",    name:"长弓·风暴",     type:"弓", school:"弓", rarity:"elite",
+    atk:10, coin:5, sanity:0, coinCount:5, desc:"一次拉满，三支箭几乎同时离弦。", atkBonus:10, speedBonus:3 },
+  { id:"blade_shadow", name:"无声刃·影",     type:"刃", school:"刃", rarity:"elite",
+    atk:12, coin:5, sanity:-1, coinCount:5, desc:"它从不出现在正面。", atkBonus:12 },
+  { id:"spear_banner", name:"贯穿枪·旗",     type:"枪", school:"枪", rarity:"elite",
+    atk:11, coin:5, sanity:0, coinCount:5, desc:"枪上缠着分部的旗，走直线。", atkBonus:11 },
+  { id:"axe_titan",    name:"震斧·巨灵",     type:"斧", school:"斧", rarity:"elite",
+    atk:13, coin:4, sanity:-2, coinCount:4, desc:"砸下去的时候，地面先塌。", atkBonus:13 },
+  { id:"knuckle_iron", name:"拳套·铁意",     type:"拳", school:"拳", rarity:"advance",
+    atk:7, coin:3, sanity:0, coinCount:3, desc:"不收势。", atkBonus:7 },
+  { id:"leg_swift",    name:"胫甲·疾行",     type:"腿", school:"腿", rarity:"advance",
+    atk:5, coin:3, sanity:0, coinCount:3, desc:"最短的一脚，最快的收招。", atkBonus:5, speedBonus:4 },
+  { id:"staff_seal3",  name:"术杖·三重",     type:"法", school:"法", rarity:"elite",
+    atk:10, coin:5, sanity:0, coinCount:5, desc:"三重封印压在杖头，术式更重。", atkBonus:10 },
+  { id:"gun_std2",     name:"制式手枪·改",   type:"枪", school:"械", rarity:"advance",
+    atk:8, coin:3, sanity:0, coinCount:3, desc:"科技部改过扳机。", atkBonus:8 },
+  { id:"med_kit_aid",  name:"医疗钳",         type:"医", school:"医", rarity:"advance",
+    atk:4, coin:3, sanity:2, coinCount:3, desc:"先止血，再说别的。", atkBonus:4 },
   { id:"fist_bare", name:"赤手（拳·腿）", type:"拳", school:"通用", rarity:"common", atk:0, coin:0, sanity:0,
     desc:"什么都不用。拳技以「不收势」为特点——别人出拳要收，他不必收。", coinCount:2 },
   { id:"knuckle", name:"拳套·铁骨", type:"拳", school:"拳", rarity:"advance", atk:2, coin:0, sanity:1, coinCount:3,
@@ -2006,6 +2027,18 @@ DATA.items = [
   { id:"sp_light", name:"银绿火焰",     rarity:"elite",   kind:"sanall", val:8,    desc:"金色手掌曾让战死者全部归来。全队理智 +8。" },
   { id:"coin_amp", name:"定印符",       rarity:"elite",   kind:"coin",   val:2,    turns:3, desc:"三回合内一名成员的硬币威力 +2。" },
   { id:"armor_pl", name:"哨站护板",     rarity:"advance", kind:"shield", val:0.35, desc:"给一名成员套上 35% 生命上限的护盾。" },
+  /* ---------- 经验罐（恒组织科技部）---------- */
+  /* ---------- 时间经验罐：强行提升等级 ---------- */
+  { id:"jar_t1", name:"稀释后的时间经验罐", rarity:"elite", kind:"lvup", val:1,
+    desc:"把一段被稀释过的战斗时间灌进体内。\n强行提升某个角色 1 级。\n—— 来自恒组织科技部" },
+  { id:"jar_t5", name:"非稀释的时间经验罐", rarity:"relic", kind:"lvup", val:5,
+    desc:"未经稀释的整段战斗时间。灌进去的人，会一次性跨过很多场战斗。\n强行提升某个角色 5 级。\n—— 来自恒组织科技部" },
+  { id:"jar_low",  name:"低级经验罐", rarity:"advance", kind:"exp", val:1000,
+    desc:"让人在脑海里模拟战斗 1 个小时，从而提升自身经验。\n—— 来自恒组织科技部" },
+  { id:"jar_mid",  name:"中级经验罐", rarity:"elite",   kind:"exp", val:5000,
+    desc:"让人在脑海里模拟战斗 12 个小时，从而提升自身经验。\n—— 来自恒组织科技部" },
+  { id:"jar_high", name:"高级经验罐", rarity:"relic",   kind:"exp", val:10000,
+    desc:"让人在脑海里模拟战斗 24 个小时，从而提升自身经验。\n—— 来自恒组织科技部" },
   { id:"org_wine", name:"庆功宴的酒",   rarity:"common",  kind:"heal",   val:0.20, desc:"11岁那年会台下的酒。回复 20% 生命。" },
   { id:"void_orb", name:"虚无之核",     rarity:"relic",   kind:"shred",  val:2,    desc:"撕开防御：让一名敌人本回合防御等级下降 2 级。" }
 ];
@@ -2027,14 +2060,16 @@ DATA.recruit = {
     elite:   { name:"精锐列员",   color:"#b48cff" },
     relic:   { name:"首镇肖级",   color:"#d8b45c" },
     eternal: { name:"恒永者级",   color:"#ffd76b" },
-    super:   { name:"超·恒永者级", color:"#ff5fd2" }
+    super:   { name:"超·恒永者级", color:"#ff5fd2" },
+    quasi:   { name:"准·恒永者级", color:"#9be8ff" },
+    hero:    { name:"专属角色",   color:"#ffe9a8" }
   },
   /* 常规招募池 */
   pool: {
-    common:  ["罗砚","沈子时","严青","柯小满","吴不器","白青禾","秦阿七","纪明远","陆知白","万青山"],
-    advance: ["钟离岸","谈无咎","裴长风","祁霜","姬万里","洛采薇","殷无衣","池砚秋"],
-    elite:   ["舒九思","慕长歌","南荣雪","赫连野","公孙照","独孤白"],
-    relic:   ["燕长庚","慕清和","宗越","江照野"]
+    common:  ["罗砚","沈子时","严青","柯小满","吴不器","白青禾","秦阿七","纪明远","陆知白","万青山","商无衣","邵长风","甘青梧","宋听寒","鄂九","商见微","冷于秋","桑无咎","裴无咎","卫南亭"],
+    advance: ["钟离岸","谈无咎","裴长风","祁霜","姬万里","洛采薇","殷无衣","池砚秋","谢惊蛰","崔无涯","方应物","卞无咎","贡清晓","邴长川"],
+    elite:   ["舒九思","慕长歌","南荣雪","赫连野","公孙照","独孤白","澹台烛","皇甫岑","尉迟澜","长孙澈"],
+    relic:   ["燕长庚","慕清和","宗越","江照野","端木昭","慕容寒","令狐泉","百里越"]
   },
   /* 恒永者级：只能招募到这些名字（组织档案里的真人，概率最低） */
   eternalPool: ["恒","李光阳","思源","李耀辉","程墨歌","萧冉","罗岚·倩安",
@@ -4675,7 +4710,7 @@ DATA.en = {
   "标准无人机":"Standard Drone",
   "重装机械平台":"Heavy Mech Platform",
   "医疗包":"Medkit",
-  "医疗部急件":"Medical Dispatch",
+  "医疗部急件":"Medical Division",
   "思晓雅抄的书":"Book Copied by Si Xiaoya",
   "银绿火焰":"Silver-Green Flame",
   "定印符":"Seal Sigil",
@@ -5154,7 +5189,7 @@ DATA.en = {
   "关系":"Relations",
   "传承":"Legacy",
   "语录":"Quotes",
-  "小传":"Biography",
+  "小传":"Chronicle",
   "工具":"Tools",
   "抉择":"Choice",
   "操作":"Controls",
@@ -6137,7 +6172,7 @@ DATA.en = {
   "暂无 —— 走完第一传之后，会在这里看到他们的名字":"None yet — finish the first chapter and their names will appear here",
   "幕":"act",
   "暂无进行中的支线":"No active side quests"
-};;;;;;;;;;;;
+};;;;;;;;;;;;;
 
 /* ---- 取一个键的英文（缺则回退原文） ---- */
 /* 语言查询桥：data.js 读不到 game.js 的脚本作用域变量 S，
