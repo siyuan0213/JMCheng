@@ -1929,6 +1929,17 @@ function applyLoadedSave(st) {
   if (!S.squad) S.squad = (S.allies[0] ? [S.allies[0].id] : []);
   /* 老存档没有专属角色：这里补建并同步等级 */
   try { syncHero(); } catch (e) {}
+  /* 全力战斗的 8 人上限只在那场战斗里有效。
+     存档里残留的 spActive 必须清掉，否则普通主线会一直是 8/2。
+     如果存档里有 spPrevSquad，顺便把编队还原回去。 */
+  if (S.spActive) {
+    S.spActive = false;
+    if (S.spPrevSquad && S.spPrevSquad.length) {
+      S.squad = S.spPrevSquad.slice();
+      S.spPrevSquad = null;
+    }
+  }
+  try { normalizeSquad(); } catch (e) {}
   if (!S.weapons) S.weapons = [];
   if (!S.weaponOf) S.weaponOf = {};
   if (!S.bag) S.bag = {};
@@ -2566,6 +2577,13 @@ function unitSkillList(u) {
    战斗流程
    ============================================================ */
 function startBattle(stage) {
+  /* 每次战斗前都校验编队合规，避免超编 / 成员失效 */
+  const bad = squadLegality();
+  if (bad) {
+    toast(bad);
+    try { if (typeof openSquad === "function") openSquad(); } catch (e) {}
+    return false;
+  }
   const squad = squadUnits();
   if (!squad.length) { toast("编队是空的。先到「编队」里安排上场成员。"); return false; }
   B = {
@@ -4188,14 +4206,15 @@ function applyJar(jarId, allyId) {
     a.level += ups;
     if (a.level >= MAX_LEVEL) { a.level = MAX_LEVEL; a.exp = 0; }
     ups = a.level - before;
+    if (a.id === HERO_ID) { S.level = a.level; S.exp = a.exp || 0; syncHero(); }
   } else {
     /* 普通经验罐：固定经验值 */
     amount = it.val || 0;
     ups = allyGiveExp(a, amount);
   }
-  /* 如果给的是专属角色，本人等级也跟着走 */
+  /* 专属角色与玩家等级绑定：他升了，本人等级也跟着升（只升不降） */
   if (a.id === HERO_ID) {
-    S.level = a.level;
+    S.level = Math.max(S.level || 1, a.level);
     S.exp = a.exp || 0;
     syncHero();
   }
@@ -4250,6 +4269,31 @@ function checkUnlocks(level) {
 /* ============================================================
    队伍 · 招募 · 兵装 · 道具
    ============================================================ */
+/* ---------- 编队合规 ----------
+   squadCap() 随剧情进度变化（2→4），全力战斗期间临时到 8。
+   但 S.squad 是存档字段，可能残留超编（全力战中途退出、
+   spActive 没清掉，之后普通主线就一直是 8/2）。这里统一收拢并强校验。 */
+function normalizeSquad() {
+  if (!S) return { changed: false, removed: 0, trimmed: 0, cap: 2 };
+  const cap = squadCap();
+  const before = (S.squad || []).slice();
+  let clean = before.filter((id) => allyById(id));
+  const removed = before.length - clean.length;
+  let trimmed = 0;
+  if (clean.length > cap) { trimmed = clean.length - cap; clean = clean.slice(0, cap); }
+  S.squad = clean;
+  return { changed: (removed + trimmed) > 0, removed: removed, trimmed: trimmed, cap: cap };
+}
+/* 开战前硬校验：返回 null 表示合规，否则返回原因 */
+function squadLegality() {
+  if (!S) return "没有存档。";
+  normalizeSquad();
+  const cap = squadCap();
+  if (!(S.squad || []).length) return "编队是空的。先到「编队」安排上场的人。";
+  if (S.squad.length > cap) return "编队超编（" + S.squad.length + " / " + cap + "）。";
+  if ((S.squad || []).some((id) => !allyById(id))) return "编队里有已经不存在的成员。";
+  return null;
+}
 function squadCap() {
   /* 特殊 BOSS 战期间编队上限临时扩到 8 人 */
   if (S && S.spActive) return SP_SQUAD_CAP;
@@ -5174,6 +5218,8 @@ window.HengDebug = {
   /* 仅调试/测试用：把当前会话语言强制成英文（不改页面、不落盘） */
   /* 测试用：直接开某个章节的某一幕战斗 */
   allyStats: function (a) { return allyStats(a); },
+  squadCap: function () { return squadCap(); },
+  squadLegal: function () { return squadLegality(); },
   expNeed: function (lv) { return expNeeded(lv); },
   useJar: function (id) { return giveExpJar(id); },
   applyJar: function (jar, ally) { return applyJar(jar, ally); },
@@ -6135,6 +6181,24 @@ function showEverDetail(id) {
     "<div style='margin-top:16px'><button class='btn btn-tiny' data-act='back-ever'>返回典藏室</button></div>");
   bindBack();
 }
+/* ---------- 创作者名单 ---------- */
+function openCredits() {
+  const html =
+    "<div style='text-align:center'>" +
+      "<h4 style='margin-top:4px'>创 作 者 名 单</h4>" +
+      "<p style='line-height:1.9;font-size:15px'>" +
+        "<b class='k'>主创</b>：玖喵瓷思源<br>" +
+        "<span style='color:var(--muted)'>(《永序锋魂》整体原作者)</span><br><br>" +
+        "<b class='k'>辅助主创 · 将想法实现</b>：DeepSeek-HARNESS<br><br>" +
+        "<b class='k'>传奇 bug 质检员</b>：泽斯克" +
+      "</p>" +
+      "<img src='credits_tokens.jpg' alt='消费金额 ¥31.36 CNY ｜ API 请求次数 2,417 ｜ Tokens 776,317,095' " +
+        "style='width:100%;max-width:640px;margin:14px auto 6px;display:block;border-radius:10px;" +
+        "border:1px solid rgba(214,178,90,.35)'>" +
+      "<p style='color:var(--gold2);font-size:14px;margin-top:8px'>（钱钱飞升了）</p>" +
+    "</div>";
+  openModal("创作者名单", html);
+}
 function openAbout() {
   openModal("关于 [恒]组织",
     "<p>[恒]组织处于万物一切的中心点。主要任务是寻找万物诞生的秘密，然后变得更强。</p>" +
@@ -6338,6 +6402,7 @@ function boot() {
     else if (act === "continue") loadAndStart();
     else if (act === "codex") openCodex();
     else if (act === "about") openAbout();
+    else if (act === "credits") openCredits();
     else if (act === "back-title") toTitle();
     else if (act === "start") requestNewGame();
     else if (act === "enter") enterChapter();

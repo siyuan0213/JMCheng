@@ -346,7 +346,7 @@ var TUT = [
        "<p>The first Move of a chain has a fixed <b>100%</b> success rate.</p>" +
        "<h4>2. Every Move after that is judged by \"Success Rate\"</h4>" +
        "<p>Rather than comparing values, a percentage is rolled outright. Roll below the success rate and it hits, and a hit carries on to the next; <b>if any move misses, the chain breaks at once</b> and later moves are never thrown.</p>" +
-       "<h4>3. Success rate is decided by \"Compatibility\"</h4>" +
+       "<h4>3. Success rate is decided by \"Affinity\"</h4>" +
        "<p>The next move\'s success rate = its affinity with the <b>previous move</b>. Moves fall into three categories: <b>melee</b> (fist / leg / sword / blade / spear / axe), <b>ranged</b> (bow / formation), <b>guard</b> (block / dodge).</p>" +
        "<p>Same-category links flow best (Fist→Leg about 97%, Sword→Sword up to 100%); <b>melee into ranged loses a great deal of rate</b> (Fist→Bow leaves only 45%); guard into melee also drops a tier below same-category.</p>" +
        "<h4>4. Longer chains hit harder</h4>" +

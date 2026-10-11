@@ -1,3 +1,5 @@
-*.apk binary
-*.png binary
+﻿* text=auto
+*.js text
+*.css text
+*.html text
 *.jpg binary
