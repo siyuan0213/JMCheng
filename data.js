@@ -1858,7 +1858,7 @@ DATA.chapters = [
 },
 {
  key:"final", no:"终传", order:12, name:"无相", subtitle:"第十二任 · 你的名字",
- era:"新时期 · 十一任之后", enemy:{ name:"无相", glyph:"无" }, unlock:"「遇孤儿必带回。——令，无例外。」",
+ era:"新时期 · 十一任之后", enemy:{ name:"无相", glyph:"无" }, unlock:"「无相不生，无相不死。」",
  desc:"十一任恒永者过去了。组织档案馆的最后一格是空的——那一格上面写着「第十二任」。\n有人从组织的边缘走了进来。它没有名字，也没有脸。它复述所有人的名字。",
  stages:[
   { type:"story", title:"空着的那一格", award:{exp:200},

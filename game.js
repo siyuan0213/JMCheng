@@ -416,6 +416,8 @@ function renderChapterView() {
   });
 
   const btn = el("btnEnter");
+  /* 终传通关后按钮变成「重看终局」，此时必须可点 */
+  const canReplay = !locked && cs.done && i >= DATA.chapters.length - 1;
   btn.disabled = locked;
   btn.textContent = locked ? "未 解 锁"
     : (cs.done ? (i === DATA.chapters.length - 1 ? "重 看 终 局" : "已 通 关") : (cs.stages === 0 ? "开 始 这 一 传" : "推 进 剧 情"));
@@ -569,6 +571,20 @@ function duelStartFight() {
   refreshHonor();
   renderDuel();
 }
+/* 文字速度：统一入口。ui.js 的打字机直接读 S.textSpeed，
+   这里改一处就够了——设置面板与音频控制条都调它。 */
+function setTextSpeed(v) {
+  const n = Math.max(0, parseInt(v, 10) || 0);
+  if (S) { S.textSpeed = n; saveGame(true); }
+  /* 同步音频控制条上的高亮 */
+  try {
+    document.querySelectorAll("#dockPanel [data-textspeed]").forEach(function (x) {
+      x.classList.toggle("btn-primary", String(n) === x.getAttribute("data-textspeed"));
+    });
+  } catch (e) {}
+  return n;
+}
+try { window.setTextSpeed = setTextSpeed; } catch (e) {}
 /* 功勋变化后刷新 HUD 与存档 */
 function refreshHonor() {
   try { renderHud(); } catch (e) {}
@@ -745,20 +761,23 @@ function openSpecialBosses() {
 function openSpSquad(bossId) {
   const b = DATA.specialBosses.find((x) => x.id === bossId);
   if (!b) return;
-  S.squad = S.squad || [];
+  /* 关键：选角阶段用「草稿」，绝不改动 S.squad。
+     否则编队会在选角时就被撑到 8 人，界面显示 (8/4)，
+     而且这份 8 人编队会残留在全功率模式之外。 */
+  if (!S.spDraft) S.spDraft = (S.squad || []).slice();
+  const draft = S.spDraft;
   const allies = S.allies || [];
   let html = "<p style='color:var(--muted)'>这一战你的<b>编队上限临时扩到 " + SP_SQUAD_CAP +
     " 人</b>。选出你要带上会台的人——选完就会开战，<b>开战后另一位全功率形态将永久关闭</b>。</p>";
   html += "<div class='stat-grid'>" +
     box("对手", b.short) +
-    box("已选", (S.squad.length) + " / " + SP_SQUAD_CAP) +
-    box("编队上限", SP_SQUAD_CAP + " 人") +
+    box("已选", draft.length + " / " + SP_SQUAD_CAP) +
+    box("本次可带", SP_SQUAD_CAP + " 人") +
     box("名册人数", allies.length) +
-    box("功勋", S.honor || 0) +
     "</div>";
   html += "<h4>选择出战成员</h4><div class='codex-grid'>";
   allies.forEach(function (a) {
-    const on = S.squad.indexOf(a.id) >= 0;
+    const on = draft.indexOf(a.id) >= 0;
     const st = allyStats(a);
     const ji = jobInfo(jobOfAlly(a));
     html += "<div class='codex-card" + (on ? " hot" : "") + "' data-sppick='" + a.id + "'>" +
@@ -772,8 +791,7 @@ function openSpSquad(bossId) {
     "<button class='btn' data-spact='all'>全 选</button>" +
     "<button class='btn' data-spact='clear'>全 不 选</button>" +
     "<button class='btn' data-spact='squad'>用 原 编 队</button>" +
-    "<button class='btn btn-primary' data-spact='go'" +
-    (S.squad.length ? "" : " disabled") + ">进 入 会 台</button>" +
+    "<button class='btn btn-primary' data-spact='go'>进 入 会 台</button>" +
     "<button class='btn btn-ghost' data-spact='back'>返 回</button>" +
     "</div>";
   html += "<p style='color:#ff9d84;margin-top:8px'>注意：进入会台后，另一位全功率形态会被永久关闭，且无法反悔。</p>";
@@ -781,41 +799,43 @@ function openSpSquad(bossId) {
   $$("#modalBody [data-sppick]").forEach(function (c) {
     c.onclick = function () {
       const id = c.getAttribute("data-sppick");
-      const i = S.squad.indexOf(id);
-      if (i >= 0) S.squad.splice(i, 1);
+      const i = S.spDraft.indexOf(id);
+      if (i >= 0) S.spDraft.splice(i, 1);
       else {
-        if (S.squad.length >= SP_SQUAD_CAP) { toast("最多带 " + SP_SQUAD_CAP + " 人。"); return; }
-        S.squad.push(id);
+        if (S.spDraft.length >= SP_SQUAD_CAP) { toast("最多带 " + SP_SQUAD_CAP + " 人。"); return; }
+        S.spDraft.push(id);
       }
-      saveGame(true);
       openSpSquad(bossId);
     };
   });
   $$("#modalBody [data-spact]").forEach(function (btn2) {
     btn2.onclick = function () {
       const a = btn2.getAttribute("data-spact");
-      if (a === "all") { S.squad = (S.allies || []).slice(0, SP_SQUAD_CAP).map((x) => x.id); openSpSquad(bossId); }
-      else if (a === "clear") { S.squad = []; openSpSquad(bossId); }
-      else if (a === "squad") { S.squad = (S.spPrevSquad || S.squad).slice(0, SP_SQUAD_CAP); openSpSquad(bossId); }
-      else if (a === "back") { openSpecialBosses(); }
+      if (a === "all") { S.spDraft = (S.allies || []).slice(0, SP_SQUAD_CAP).map((x) => x.id); openSpSquad(bossId); }
+      else if (a === "clear") { S.spDraft = []; openSpSquad(bossId); }
+      else if (a === "squad") { S.spDraft = (S.squad || []).slice(0, SP_SQUAD_CAP); openSpSquad(bossId); }
+      else if (a === "back") { S.spDraft = null; openSpecialBosses(); }
       else if (a === "go") {
-        if (!S.squad.length) { toast("至少要带一个人。"); return; }
+        if (!S.spDraft.length) { toast("至少要带一个人。"); return; }
         if (!confirm("确定挑战【" + b.name + "】？\n\n进入后另一位全功率形态将永久关闭，且无法反悔。")) return;
-        startSpecialBoss(bossId);
+        const draft = S.spDraft.slice();
+        S.spDraft = null;
+        startSpecialBoss(bossId, draft);
       }
-      saveGame(true);
     };
   });
 }
 /* ---------- 开战 ---------- */
-function startSpecialBoss(bossId) {
+function startSpecialBoss(bossId, draftSquad) {
   const b = DATA.specialBosses.find((x) => x.id === bossId);
   if (!b) return;
   if (spDone() && spDone() !== bossId) { toast("另一位已经关闭了。"); return; }
   const e = DATA.enemies[b.enemy];
   if (!e) { toast("BOSS 数据缺失。"); return; }
-  /* 记下原编队，战斗结束后恢复 */
+  /* 先把玩家原来的编队收好，再把草稿作为这一战的出战名单。
+     这样战斗结束后能精确还原，也不会污染全功率模式之外的编队。 */
   S.spPrevSquad = (S.squad || []).slice();
+  if (draftSquad && draftSquad.length) S.squad = draftSquad.slice(0, SP_SQUAD_CAP);
   S.specialBoss = bossId;            /* 立刻锁定：不可反悔 */
   S.spActive = true;                 /* 编队上限临时扩到 8 */
   closeModal();
@@ -837,15 +857,15 @@ function startSpecialBoss(bossId) {
     B.noItem = true;
     B.noHeal = true;
     /* 全功率数值：生命拉到 20~26 回合的标度，攻击远高于普通 BOSS */
-    const bossHp = Math.round(900 + S.level * 260);
+    const bossHp = Math.round(760 + S.level * 190);
     (B.enemies || []).forEach(function (en) {
       en.maxHp = bossHp;
       en.hp = bossHp;
-      en.atkLevel = Math.round(14 + S.level * 1.5);
-      en.defLevel = Math.round(10 + S.level * 1.15);
-      en.speed = Math.round(16 + S.level * 0.5);
+      en.atkLevel = Math.round(11 + S.level * 1.0);
+      en.defLevel = Math.round(9 + S.level * 0.95);
+      en.speed = Math.round(14 + S.level * 0.4);
       en.isBoss = true;
-      en.dmgMul = 1.35;
+      en.dmgMul = 1.05;
       if (b.pool && b.pool.length) en.moves = b.pool.filter((m) => DATA.moves[m]);
     });
     renderBattle();
@@ -1156,7 +1176,7 @@ function openCommissions() {
   ensureCommissions();
   ensureBaseline();
   const claimed = S.commissionClaimed || {};
-  const cards = (S.commissions || []).map((cm) => {
+  const allItems = (S.commissions || []).map((cm) => {
     const have = commissionProgress(cm);
     const pct = Math.min(100, Math.round(have / cm.need * 100));
     const ok = have >= cm.need;
@@ -1165,7 +1185,7 @@ function openCommissions() {
     if (cm.kind === "arenaBattle") acts += "<button class='btn btn-tiny btn-primary' data-cmgo='" + cm.tier + "' data-cmdiff='" + (cm.arenaDiff || "normal") + "'>前 往 无 垠 厅</button>";
     if (cm.kind === "bossWin") acts += "<button class='btn btn-tiny' data-cmboss='1'>去 会 台</button>";
     if (ok && !got) acts += "<button class='btn btn-tiny btn-primary' data-cmclaim='" + cm.id + "'>交 付</button>";
-    return "<div class='cm" + (got ? " claimed" : (ok ? " ready" : "")) + "'>" +
+    const html = "<div class='cm" + (got ? " claimed" : (ok ? " ready" : "")) + "'>" +
       "<div class='cm-top'><span class='cm-name'>" + cm.title + "</span>" +
         "<span class='cm-honor'>+" + cm.honor + "</span></div>" +
       "<div class='cm-brief'>" + cm.brief + "</div>" +
@@ -1174,7 +1194,12 @@ function openCommissions() {
         (got ? "　·　已交付" : "") + "</div>" +
       (acts ? "<div class='cm-act'>" + acts + "</div>" : "") +
       "</div>";
-  }).join("");
+    /* 关键：把对象和 HTML 一起留下，否则下面按 id 分组会全部落空 */
+    return { id: cm.id, got: got, html: html };
+  });
+  /* 已交付的委托单独分栏，不再混在可承接列表里 */
+  const cards = allItems.filter((x) => !x.got).map((x) => x.html).join("");
+  const doneCards = allItems.filter((x) => x.got).map((x) => x.html).join("");
   openModal("委托 · 每日任务",
     "<div class='cm-head'>" +
       "<span>每天 <b class='k'>6</b> 条，全部完成可得 <b class='k'>" + DATA.recruit.costTen +
@@ -1187,7 +1212,10 @@ function openCommissions() {
       "<div class='stat-box'><div class='s-name'>今天还可领</div><div class='s-val'>" + commissionHonorLeft() + "</div></div>" +
       "<div class='stat-box'><div class='s-name'>刷新日</div><div class='s-val'>" + S.commissionDay + "</div></div>" +
     "</div>" +
-    "<div class='cm-grid'>" + cards + "</div>" +
+    "<h4>进行中的委托</h4>" +
+    (cards ? "<div class='cm-grid'>" + cards + "</div>"
+           : "<p class='muted'>今天的委托都交付完了。明天 0 点刷新。</p>") +
+    (doneCards ? "<h4>已完成（不再计入奖励）</h4><div class='cm-grid cm-done'>" + doneCards + "</div>" : "") +
     "<p style='color:var(--muted);margin-top:12px'>刷新时间按你设备的本地时间，每天 0 点重置。未交付的委托会作废；进度从当天第一次打开这个面板时开始计算。</p>");
   const tick = setInterval(() => {
     const t = el("cmTimer");
@@ -1264,7 +1292,13 @@ function openSettings() {
   bind("slots", () => openSaveSlots());
   bind("export", () => exportSave());
   bind("import", () => importSave());
-  bind("title", () => { if (confirm("返回标题界面？当前进度已保存。")) { saveGame(true); closeModal(); toTitle(); } });
+  bind("title", () => {
+    askConfirm("返回标题", "返回标题界面？<br>当前进度已保存。", "返 回", () => {
+      saveGame(true);
+      closeModal();
+      toTitle();
+    });
+  });
   bind("quit", () => quitGame());
   const vm = document.getElementById("setVolMusic");
   if (vm) vm.oninput = function () {
@@ -1282,22 +1316,83 @@ function openSettings() {
   };
   $$("#modalBody [data-speed]").forEach((b) => {
     b.onclick = () => {
-      const v = parseInt(b.getAttribute("data-speed"), 10);
-      if (S) S.textSpeed = v;
-      saveGame(true);
-      const d = document.querySelector("#dockPanel [data-textspeed='" + v + "']");
-      if (d) d.click();
+      setTextSpeed(b.getAttribute("data-speed"));
       openSettings();
     };
   });
 }
-function quitGame() {
-  if (!confirm("退出游戏？进度已保存，下次可以从存档位继续。")) return;
+/* 切换难度：从头重启剧情（否则高难度会作用到已经打过的进度上） */
+function switchDifficulty(id) {
+  if (!DATA.difficulties[id]) return;
+  if (id === "hard" && !S.hardUnlocked) { toast("困难还没解锁。"); return; }
+  if (id === "true" && !S.trueUnlocked) { toast("真实还没解锁。"); return; }
+  if (id === diffIdRaw()) { toast("已经是这个难度了。"); return; }
+  if (!confirm("切换到【" + DATA.difficulties[id].name + "】？\n\n" +
+      "为了让难度生效，主线会从第一传第一幕重新开始。\n" +
+      "你的等级、功勋、队友、兵装都会保留，只是关卡进度回到开头。")) return;
+  S.difficulty = id;
+  /* 关卡进度清零 */
+  S.chapters = {};
+  S.chapterIndex = 0;
+  S.stage = 0;
+  S.unlocked = Math.max(1, Math.min(S.unlocked || 1, DATA.chapters.length));
+  if (S.dev) S.unlocked = DATA.chapters.length;
+  UI.selectedChapter = 0;
   saveGame(true);
   closeModal();
+  renderMap();
+  show("map");
+  toast("已切换到【" + DATA.difficulties[id].name + "】，主线从第一传重新开始。");
+}
+function quitGame() {
+  if (isApp()) {
+    if (!confirm("退出游戏？进度已保存，下次可以从存档位继续。")) return;
+    saveGame(true);
+    try { if (window.HengAudio) window.HengAudio.stop(); } catch (e) {}
+    try { window.HengApp.quit(); return; } catch (e) {}
+    toTitle();
+    return;
+  }
+  /* 浏览器 / 桌面版没有「退出应用」这回事，退回标题界面并说明 */
+  if (!confirm("浏览器里没法真正关闭程序。\n\n要回到标题界面吗？进度已保存。")) return;
+  saveGame(true);
   try { if (window.HengAudio) window.HengAudio.stop(); } catch (e) {}
   toTitle();
-  toast("已退出到标题界面。");
+  toast("已回到标题界面。浏览器版无法自动关闭窗口。");
+}
+/* 安卓返回键：先关弹窗，再回标题；都不需要时才真正退出应用 */
+window.HengApp_onBack = function () {
+  try {
+    const m = el("modal");
+    if (m && m.classList && m.classList.contains("on")) { closeModal(); return 1; }
+    if (typeof UI !== "undefined" && UI.screen === "title") return 0;   // 已在标题 → 退出
+    if (UI.screen === "battle") { return 1; }                            // 战斗中不退出
+    toTitle();
+    return 1;
+  } catch (e) { return 0; }
+};
+/* ---- 游戏内确认弹窗 ----
+   不依赖系统 confirm()：某些安卓 WebView / 浏览器会拦截原生弹窗，
+   拦截后 `if (!confirm(..)) return;` 会静默返回，看起来就是「点了没反应」。 */
+let askState = null;
+function askConfirm(title, text, okLabel, fn, danger) {
+  askState = { fn: fn, restore: null };
+  openModal(title,
+    "<p style='line-height:1.8'>" + String(text).replace(/\n/g, "<br>") + "</p>" +
+    "<div class='set-row set-btns' style='margin-top:14px'>" +
+      "<button class='btn " + (danger ? "btn-danger" : "btn-primary") + "' data-ask='yes'>" +
+        (okLabel || "确 定") + "</button>" +
+      "<button class='btn btn-ghost' data-ask='no'>取 消</button>" +
+    "</div>");
+  const yes = document.querySelector("#modalBody [data-ask='yes']");
+  const no = document.querySelector("#modalBody [data-ask='no']");
+  if (yes) yes.onclick = function () {
+    const f = askState ? askState.fn : null;
+    askState = null;
+    closeModal();
+    if (f) { try { f(); } catch (e) {} }
+  };
+  if (no) no.onclick = function () { askState = null; closeModal(); };
 }
 /* ---- 存档位面板 ---- */
 function openSaveSlots() {
@@ -1347,10 +1442,11 @@ function openSaveSlots() {
   }; });
   $$("#modalBody [data-del]").forEach((b) => { b.onclick = () => {
     const k = b.getAttribute("data-del");
-    if (!confirm("删除 " + k + " 号位的存档？此操作不可恢复。")) return;
-    deleteSlot(k);
-    toast("已删除 " + k + " 号位");
-    openSaveSlots();
+    askConfirm("删除存档", "删除 " + k + " 号位的存档？<br>此操作不可恢复。", "删 除", () => {
+      deleteSlot(k);
+      toast("已删除 " + k + " 号位");
+      openSaveSlots();
+    }, true);
   }; });
   const ex = document.querySelector("#modalBody [data-set='export']");
   if (ex) ex.onclick = () => exportSave();
@@ -1360,17 +1456,30 @@ function openSaveSlots() {
   if (cl) cl.onclick = () => closeModal();
 }
 function loadSlotAndContinue(key) {
-  const s = loadFromSlot(key);
-  if (!s) { toast("该存档位是空的。"); return; }
-  if (!confirm("读取 " + key + " 号位？当前未保存的进度会丢失。")) return;
-  setActiveSlot(key);
-  S = s;
-  applyLoadedSave();
-  saveGame(true);
-  closeModal();
-  renderMap();
-  show("map");
-  toast("已读取 " + key + " 号位 · " + (S.name || "") + " Lv." + (S.level || 1));
+  const raw = loadFromSlot(key);
+  if (!raw) { toast("该存档位是空的。"); return; }
+  askConfirm("读取存档", "读取 " + key + " 号位？<br>当前未保存的进度会丢失。", "读 取", () => {
+    doLoadSlot(key);
+  });
+}
+function doLoadSlot(key) {
+  const raw = loadFromSlot(key);
+  if (!raw) { toast("该存档位是空的。"); return; }
+  /* 读取失败时给出明确原因，不要静默什么都不发生 */
+  try {
+    setActiveSlot(key);
+    const loaded = applyLoadedSave(raw);
+    if (!loaded) throw new Error("存档内容无效");
+    S = loaded;
+    saveGame(true);
+    closeModal();
+    renderMap();
+    show("map");
+    toast("已读取 " + key + " 号位 · " + (S.name || "") + " Lv." + (S.level || 1));
+  } catch (e) {
+    toast("读取失败：" + (e && e.message ? e.message : "存档可能已损坏"));
+    if (S) { try { renderMap(); } catch (e2) {} }
+  }
 }
 /* ---- 存档注意事项 ---- */
 function openSaveNotes() {
@@ -1496,8 +1605,10 @@ function normalizeAllyJobs() {
     }
   });
 }
-function applyLoadedSave() {
-  if (!S) return;
+function applyLoadedSave(st) {
+  const keep = S;
+  if (st) S = st;
+  if (!S) { S = keep; return null; }
   normalizeAllyJobs();
   if (!S.spent) S.spent = { atk:0, def:0, spd:0, will:0, hpBonus:0 };
   if (!S.allied) S.allied = {};
@@ -1525,6 +1636,8 @@ function applyLoadedSave() {
   if (!S.commissionClaimed) S.commissionClaimed = {};
   if (!S.chapters) S.chapters = {};
   equipList();
+  const out = S;
+  return out;
 }
 /* ============================================================
    恒永者年表 · 就任年龄与世代层级
@@ -1620,15 +1733,51 @@ function enterChapter() {
   const i = UI.selectedChapter;
   const ch = DATA.chapters[i];
   const cs = chapterState(i);
+  const isFinal = i >= DATA.chapters.length - 1;
   if (cs.stages >= ch.stages.length) {
-    if (cs.done) { toast("这一传已经走完了。"); return; }
+    if (cs.done) {
+      /* 终传通关后允许「重看终局」：从第一幕重走一遍，不改动任何进度 */
+      if (isFinal) { replayChapter(i); return; }
+      toast("这一传已经走完了。");
+      return;
+    }
     finishChapter(i); return;
   }
+  S.replay = false;
   S.chapterIndex = i; S.stage = cs.stages;
   startStage();
 }
+/* 重看终局：不推进进度、不重复结缘、不影响通关记录 */
+function replayChapter(i) {
+  const cs = chapterState(i);
+  S.replay = true;
+  S.replaySaved = { stages: cs.stages, done: cs.done, chapterIndex: S.chapterIndex, stage: S.stage };
+  cs.stages = 0;
+  cs.done = false;
+  S.chapterIndex = i;
+  S.stage = 0;
+  saveGame(true);
+  startStage();
+  toast("重看终局 · 不会影响你的进度");
+}
 function finishChapter(i) {
   const ch = DATA.chapters[i];
+  /* 重看模式：走完只还原，不结缘、不解锁、不重复通关弹窗 */
+  if (S && S.replay) {
+    const rs = S.replaySaved || {};
+    const cs2 = chapterState(i);
+    cs2.stages = rs.stages === undefined ? ch.stages.length : rs.stages;
+    cs2.done = rs.done === undefined ? true : rs.done;
+    if (rs.chapterIndex !== undefined) S.chapterIndex = rs.chapterIndex;
+    if (rs.stage !== undefined) S.stage = rs.stage;
+    S.replay = false;
+    S.replaySaved = null;
+    saveGame(true);
+    renderMap();
+    show("map");
+    toast("重看结束。进度没有被改动。");
+    return;
+  }
   chapterState(i).done = true;
   if ((S.unlocked || 1) < i + 2) S.unlocked = Math.min(i + 2, DATA.chapters.length);
   // 结缘：本传的恒永者
@@ -3543,8 +3692,18 @@ function afterBattle() {
     return;
   }
   /* 特殊 BOSS 战结束后恢复原编队与编队上限 */
-  if (S && S.restoreSquadAfterSp) { S.restoreSquadAfterSp = false; spRestoreSquad(); }
-  if (S) S.spActive = false;
+  if (S) {
+    S.spActive = false;
+    if (S.spPrevSquad && S.spPrevSquad.length) {
+      /* 用「非特殊战」时的常规容量还原，不要硬算 */
+      const normalCap = clamp(2 + Math.floor(Object.values(S.chapters || {}).filter((c) => c.done).length / 3), 2, 4);
+      S.squad = S.spPrevSquad.slice(0, normalCap);
+      S.spPrevSquad = null;
+    }
+    S.spDraft = null;
+    S.restoreSquadAfterSp = false;
+    saveGame(true);
+  }
   healSquad(0.10);
   const ch = DATA.chapters[S.chapterIndex];
   const cs = chapterState(S.chapterIndex);
@@ -3641,7 +3800,7 @@ function checkUnlocks(level) {
    ============================================================ */
 function squadCap() {
   /* 特殊 BOSS 战期间编队上限临时扩到 8 人 */
-  if (typeof SP_SQUAD_CAP === "number" && S && S.spActive) return SP_SQUAD_CAP;
+  if (S && S.spActive) return SP_SQUAD_CAP;
   const done = Object.values(S.chapters || {}).filter((c) => c.done).length;
   return clamp(2 + Math.floor(done / 3), 2, 4);
 }
@@ -4310,6 +4469,7 @@ window.HengDebug = {
   },
   spState: function () {
     return { chosen: spDone(), active: !!(S && S.spActive), cap: squadCap(),
+             draft: (S && S.spDraft ? S.spDraft.slice() : null),
              squad: (S && S.squad ? S.squad.slice() : []),
              prevSquad: (S && S.spPrevSquad ? S.spPrevSquad.slice() : null) };
   },
@@ -4325,6 +4485,24 @@ window.HengDebug = {
   spGrant: function (id) { grantSpReward(id); return { has: spHasReward(DATA.specialBosses.find(function (b) { return b.id === id; })) }; },
   spSquadCap: function () { return squadCap(); },
   spDoneProbe: function () { return spDone(); },
+  openSettings: function () { openSettings(); },
+  openSlots: function () { openSaveSlots(); },
+  openDifficulty: function () { openDifficulty(); },
+  toTitle: function () { toTitle(); return UI.screen; },
+  switchDiff: function (id) { switchDifficulty(id); return S ? S.difficulty : null; },
+  openCommissions: function () { openCommissions(); },
+  commissionState: function () {
+    const cl = S.commissionClaimed || {};
+    return { total: (S.commissions || []).length, claimed: Object.keys(cl).length };
+  },
+  claimCommission: function (id, force) {
+    S.commissionClaimed = S.commissionClaimed || {};
+    if (force) S.commissionCounters = S.commissionCounters || {};
+    S.commissionClaimed[id] = true;
+    saveGame(true);
+    return true;
+  },
+  setTextSpeed: function (v) { return setTextSpeed(v); },
   allyPlans: function () {
     if (!B) return [];
     return B.units.map(function (u) {
@@ -4500,7 +4678,18 @@ window.HengDebug = {
 /* ============================================================
    难度模式
    ============================================================ */
-function diffId() { return (S && S.difficulty) || "normal"; }
+/* 厅内 / 斗蛐蛐 / 特殊 BOSS 都有各自的难度或独立标度，
+   这些战斗中要让主线难度「失灵」，否则困难会连带覆盖全局。 */
+function inNonStoryBattle() {
+  if (!B) return false;
+  return !!(B.arena || B.spBoss || (B.stage && (B.stage.arena || B.stage.spBoss || B.stage.duel)));
+}
+function diffId() {
+  if (inNonStoryBattle()) return "normal";
+  return (S && S.difficulty) || "normal";
+}
+/* 真实难度（用于界面显示，不受战斗作用域影响） */
+function diffIdRaw() { return (S && S.difficulty) || "normal"; }
 function diffConf() {
   return (DATA.difficulties && DATA.difficulties[diffId()]) || DATA.difficulties.normal;
 }
@@ -4544,13 +4733,7 @@ function openDifficulty() {
       "<div class='stat-box'><div class='s-name'>真实</div><div class='s-val'>" + (S.trueCleared ? "已通关" : (S.trueUnlocked ? "已解锁" : "未解锁")) + "</div></div>" +
     "</div>");
   $$("#modalBody [data-setdiff]").forEach((b) => {
-    b.onclick = () => {
-      S.difficulty = b.getAttribute("data-setdiff");
-      saveGame(true);
-      toast("难度已切换：" + diffConf().name);
-      closeModal();
-      renderMap();
-    };
+    b.onclick = () => switchDifficulty(b.getAttribute("data-setdiff"));
   });
 }
 
@@ -4981,15 +5164,19 @@ function startBoss(id, b) {
     B.noHeal = true;
     // BOSS 强度：生命采用独立标度（拉长到 10~14 回合），攻击等级略升
     var rawHp = (DATA.enemies[id] && DATA.enemies[id].hp) || 3000;
-    var bossHp = Math.round(220 + rawHp * 1.1);
+    /* 会台平衡：按「满编 4 人、约 8~11 回合」的标度。
+       原来直接用 1.1 倍原始血量，绝大多数 BOSS 会变成纯消耗战。 */
+    var bossHp = Math.round(180 + rawHp * 0.62 + S.level * 26);
     (B.enemies || []).forEach(function (en) {
       en.maxHp = bossHp;
       en.hp = bossHp;
       if (en.bossSkillCoin) { /* 占位，避免误解 */ }
       // 会台平衡：BOSS 的拼点威力压到与「满编队 + 遗物兵装」势均力敌的水平
-      en.atkLevel = Math.max(3, Math.round(en.atkLevel * 0.78));
-      en.defLevel = Math.max(6, Math.round(en.defLevel * 1.10));
-      en.coinBonus = -2;           // 硬币威力 -2
+      /* 攻击与防御一起往下压：原来的 BOSS 一旦攻击抬起来就是秒杀。 */
+      en.atkLevel = Math.max(3, Math.round(en.atkLevel * 0.58));
+      en.defLevel = Math.max(6, Math.round(en.defLevel * 0.92));
+      en.dmgMul = 0.85;
+      en.coinBonus = -2;
       en.isBoss = true;
     });
     renderBattle();
@@ -5229,9 +5416,15 @@ function openAbout() {
    启动
    ============================================================ */
 function toTitle() {
+  try { closeModal(); } catch (e) {}
   show("title");
   rotateQuotes();
   el("titleQuote").textContent = QUOTES[0];
+}
+/* 是否跑在 APK 里 */
+function isApp() {
+  try { return !!(window.HengApp && window.HengApp.isApp && window.HengApp.isApp()); }
+  catch (e) { return false; }
 }
 /* ============================================================
    开发者模式：姓名输入「玖喵思源」时询问是否开启
@@ -5367,7 +5560,7 @@ function loadAndStart() {
   const s = loadGame();
   if (!s) { toast("没有找到存档。"); return; }
   S = s;
-  applyLoadedSave();
+  S = applyLoadedSave(S) || S;
   saveGame(true);
   renderMap();
   show("map");

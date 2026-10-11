@@ -287,7 +287,12 @@ function buildAudioDock() {
   $$("#dockPanel [data-textspeed]").forEach(function (b) {
     b.onclick = function () {
       var v = parseInt(b.getAttribute("data-textspeed"), 10);
-      try { if (typeof S !== "undefined" && S) { S.textSpeed = v; if (typeof saveGame === "function") saveGame(true); } } catch (e) {}
+      /* 统一走 game.js 的 setTextSpeed，避免两套入口各写各的 */
+      if (window.setTextSpeed) {
+        window.setTextSpeed(v);
+      } else {
+        try { if (typeof S !== "undefined" && S) { S.textSpeed = v; if (typeof saveGame === "function") saveGame(true); } } catch (e) {}
+      }
       $$("#dockPanel [data-textspeed]").forEach(function (x) { x.classList.remove("btn-primary"); });
       b.classList.add("btn-primary");
       if (window.HengAudio) window.HengAudio.sfx("click");
@@ -492,6 +497,8 @@ window.HengFx = {
   writeText: writeText, typing: typing, skip: skipType, finish: finishType,
   openTutorial: openTutorial, closeTutorial: closeTutorial, maybeFirstRun: maybeFirstRun,
   /* 供 game.js 的 boot() 调用（game.js 的同名 boot 会覆盖本文件的，故显式暴露） */
-  buildAudioDock: buildAudioDock, bootUi: bootUi
+  buildAudioDock: buildAudioDock, bootUi: bootUi,
+  /* 打字机直接读 S.textSpeed，这里只提供读取，方便别处查询 */
+  typeSpeed: typeSpeed, isOff: textSpeedOff
 };
 })();
