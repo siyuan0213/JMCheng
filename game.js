@@ -27,7 +27,6 @@ let UI = { screen: "title", selectedChapter: 0 };
 let queue = [];
 let toastTimer = null;
 let quoteTimer = null;
-
 function toast(msg) {
 const t = el("toast");
 t.textContent = msg;
@@ -39,7 +38,6 @@ function openModal(title, html) {
 el("modalTitle").textContent = tr(title);
 el("modalBody").innerHTML = html;
 el("modal").classList.add("on");
-
 try { localizeDom(el("modalBody")); } catch (e) {}
 }
 function closeModal() { el("modal").classList.remove("on"); }
@@ -48,10 +46,8 @@ UI.screen = screen;
 $$(".screen").forEach((s) => s.classList.remove("active"));
 const node = el("scr-" + screen);
 if (node) node.classList.add("active");
-
 try { localizeDom(node || document.body); } catch (e) {}
 }
-
 function baseStats(st) {
 const oa = ((DATA.origins[st.origin] || {}).stats) || {};
 const sa = ((DATA.schools[st.school] || {}).bonus) || {};
@@ -98,7 +94,6 @@ lines.push(["l-sys", "新解锁技能：" + fresh.map((id) => DATA.abilities[id]
 }
 function applyAward(aw, lines, onlyMax) {
 if (!aw) return;
-
 const _dc = (typeof diffConf === "function") ? diffConf() : { exp:1, honor:1 };
 if (aw.exp && _dc.exp !== 1) aw = Object.assign({}, aw, { exp: Math.round(aw.exp * _dc.exp) });
 if (aw.honor && _dc.honor !== 1) aw = Object.assign({}, aw, { honor: Math.round(aw.honor * _dc.honor) });
@@ -117,7 +112,6 @@ else S.hp += aw.hp;
 lines.push(["l-sys", "生命上限 +" + aw.hp + "。"]);
 }
 if (aw.unlockCodex) markCodex(aw.unlockCodex);
-
 if (aw.honor) {
 S.honor = (S.honor || 0) + aw.honor;
 lines.push(["l-crit", "获得功勋 " + aw.honor + "。"]);
@@ -144,8 +138,6 @@ lines.push(["l-crit", "解锁兵装：" + (d ? d.name : w)]);
 });
 }
 }
-
-
 const SLOTS_KEY = "heng_rpg_slots_v1";
 const SLOTS_META = "heng_rpg_slots_meta_v1";
 const ACTIVE_SLOT = "heng_rpg_active_slot";
@@ -175,7 +167,6 @@ difficulty: obj.difficulty || "normal",
 honor: obj.honor || 0
 };
 }
-
 function migrateLegacySave() {
 let legacy = null;
 try { const raw = localStorage.getItem(SAVE_KEY); legacy = raw ? JSON.parse(raw) : null; } catch (e) { legacy = null; }
@@ -209,7 +200,6 @@ if (!list.length) {
 const legacy = loadLegacy();
 return legacy ? { key: "legacy", has: true, meta: metaOf(legacy) } : null;
 }
-
 list.sort((a, b) => ((b.meta.at || 0) - (a.meta.at || 0)) || (Number(b.key) - Number(a.key)));
 return list[0];
 }
@@ -282,7 +272,6 @@ if (d) return d.title;
 const e = DATA.ever.find((x) => x.id === id);
 return e ? e.no + " · " + e.name : id;
 }
-
 function newState(name, origin, school, oath) {
 const st = { name: name || "无名者", origin: origin, school: school, oath: oath,
 level: 1, exp: 0, points: 0, spent: { atk:0, def:0, spd:0, will:0, hpBonus:0 },
@@ -293,7 +282,6 @@ arena: { tier: 0, streak: 0, wins: 0 },
 chapters: {}, chapterIndex: 0, stage: 0 };
 st.allies = starterAllies();
 st.squad = [st.allies[0].id];
-
 try {
 const h = heroAlly();
 if (h) { st.allies.unshift(h); st.squad.unshift(h.id); invalidateAllyIndex(); }
@@ -313,7 +301,6 @@ st.mats = {};
 st.questCounters = { battles:0, kills:0, killsByTag:{}, bossWins:0, arenaWins:0, fullHp:0 };
 st.drops = 0;
 st.difficulty = "normal";
-
 st.hardUnlocked = false;
 st.trueUnlocked = false;
 st.assistSeen = {};
@@ -327,7 +314,6 @@ return S.chapters[i];
 function alliedList() {
 return Object.keys(S.allied || {}).filter((k) => S.allied[k]);
 }
-
 const QUOTES = [
 "「原作者：JMiaoC（玖喵瓷思源）」",
 "「我想当一个凡人，可世间的压力不容许我当一个凡人。」",
@@ -351,7 +337,6 @@ updateOriginDesc(); updateSchoolDesc();
 }
 function updateOriginDesc() { el("originDesc").textContent = DATA.origins[el("inpOrigin").value].desc; }
 function updateSchoolDesc() { el("schoolDesc").textContent = DATA.schools[el("inpSchool").value].desc; }
-
 function renderMap() {
 setTimeout(armHudStrip, 60);
 try { renderQuestStrip(); } catch (e) {}
@@ -399,12 +384,10 @@ d.textContent = (st.type === "battle" ? "⚔ " : "") + tr(st.title);
 strip.appendChild(d);
 });
 const btn = el("btnEnter");
-
 const canReplay = !locked && cs.done && i >= DATA.chapters.length - 1;
 btn.disabled = locked;
 btn.textContent = locked ? "未 解 锁"
 : (cs.done ? (i === DATA.chapters.length - 1 ? "重 看 终 局" : "已 通 关") : (cs.stages === 0 ? "开 始 这 一 传" : "推 进 剧 情"));
-
 if (!restartRowEl) {
 restartRowEl = document.createElement("div");
 restartRowEl.id = "chRestartRow";
@@ -446,17 +429,14 @@ el("unlockNote").innerHTML =
 } else {
 el("unlockNote").innerHTML = "";
 }
-
 try {
 if (isEn()) ["chapterList","chNo","chTitle","chMeta","chDesc","stageStrip","unlockNote"]
 .forEach(function (id) { const n = el(id); if (n) localizeDom(n); });
 } catch (e) {}
 }
-
 function armHudStrip() {
 const strip = document.querySelector(".hud-right");
 if (!strip) return;
-
 if (strip.scrollWidth <= strip.clientWidth + 4) {
 strip.classList.remove("nudge");
 return;
@@ -472,15 +452,12 @@ try { sessionStorage.setItem("hudStripSeen", "1"); } catch (e) {}
 strip.onscroll = function () { strip.classList.toggle("at-end", atEnd()); };
 strip.classList.toggle("at-end", atEnd());
 }
-
 function duelPowerRatio(a, b) {
 const A = a.power || 6, B = b.power || 6;
 return A / (A + B); 
 }
-
 function duelOdds(a, b) {
 const pA = Math.max(0.05, Math.min(0.95, duelPowerRatio(a, b)));
-
 const mk = (p) => {
 const t = Math.max(0, Math.min(1, (0.50 - p) / 0.24)); 
 return Math.round((2 + t * 8) * 10) / 10;
@@ -507,7 +484,6 @@ pool: (d.pool || []).filter((m) => DATA.moves[m]),
 shield: 0, dodgeReady: 0, bleed: 0, bleedDmg: 0
 };
 }
-
 function openDuel() {
 if (!S) { toast("先建一份档案。"); return; }
 D_ = {
@@ -518,7 +494,6 @@ bet: 0, round: 0, log: [], winner: null, side: null, settled: false
 newDuelMatch();
 renderDuel();
 }
-
 function newDuelMatch() {
 const pair = pickTwoDuelists();
 if (!pair) { toast("斗蛐蛐名册为空。"); return; }
@@ -540,7 +515,6 @@ if (!D_) return;
 D_.log.push({ cls: cls, text: text });
 if (D_.log.length > 200) D_.log.shift();
 }
-
 function duelSideOdds(side) {
 if (!D_ || !D_.odds) return 2;
 return side === "a" ? D_.odds.a : D_.odds.b;
@@ -570,7 +544,6 @@ if ((S.honor || 0) < D_.bet) { toast("功勋不足。"); return; }
 D_.phase = "fight";
 D_.round = 0;
 D_.log = [];
-
 S.honor = Math.max(0, (S.honor || 0) - D_.bet);
 D_.staked = true;
 duelLog("l-sys", "—— 已扣除押注 " + D_.bet + " 功勋。你押的是【" + D_[D_.side].name +
@@ -579,8 +552,6 @@ duelLog("l-sys", "—— 开打。");
 refreshHonor();
 renderDuel();
 }
-
-
 const LANG_KEY = "heng_rpg_lang_v1";
 let langPref = null;
 function loadLangPref() {
@@ -590,10 +561,6 @@ if (v && DATA.langCodes.indexOf(v) >= 0) return v;
 } catch (e) {}
 return null;
 }
-function saveLangPref(v) {
-try { localStorage.setItem(LANG_KEY, v); } catch (e) {}
-}
-
 const PAGE_LANG = (function () {
 try {
 const p = (typeof location !== "undefined" && location && location.pathname) || "";
@@ -601,11 +568,9 @@ return /index\.en\.html$/i.test(p) ? "en" : "zh";
 } catch (e) { return "zh"; }
 })();
 function curLang() {
-
 try { if (typeof DATA !== "undefined" && DATA.forcedLang) return DATA.forcedLang; } catch (e) {}
 return PAGE_LANG;
 }
-
 try {
 DATA.langGetter = function () { return curLang(); };
 } catch (e) {}
@@ -614,19 +579,10 @@ function tr(s) {
 if (!isEn()) return s;
 if (s == null) return s;
 const k = String(s);
-
 const es = DATA.enStory;
 if (es && Object.prototype.hasOwnProperty.call(es, k)) return es[k];
 return (typeof DATA.t === "function") ? DATA.t(k) : k;
 }
-
-function trf(obj, field) {
-if (!obj || !isEn()) return obj;
-const v = obj[field];
-if (v != null) obj[field] = tr(v);
-return obj;
-}
-
 let enPhraseKeys = null;
 function enPhraseList() {
 if (enPhraseKeys) return enPhraseKeys;
@@ -640,7 +596,6 @@ function localizeDom(root) {
 if (!isEn()) return 0;
 const d = DATA.en || {};
 let n = 0;
-
 const norm = function (x) { return String(x).replace(/[\s\u3000]+/g, ""); };
 let exact = null; 
 let dynKeys = null; 
@@ -656,14 +611,12 @@ if (/[0-9]/.test(k)) dynKeys.push(k);
 }
 dynKeys.sort(function (a, b) { return norm(b).length - norm(a).length; });
 }
-
 function dynRewrite(raw) {
 if (!dynKeys) return null;
 const nr = norm(raw);
 for (let i = 0; i < dynKeys.length; i++) {
 const k = dynKeys[i];
 const tpl = norm(k);
-
 const parts = tpl.split(/[0-9]+/);
 if (parts.length < 2) continue;
 let re = "^";
@@ -674,7 +627,6 @@ re += parts[t].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 re += "$";
 try {
 if (new RegExp(re).test(nr)) {
-
 const nums = nr.match(/[0-9]+/g) || [];
 let en = d[k];
 let idx = 0;
@@ -706,7 +658,6 @@ if (v !== null) node.nodeValue = v;
 return;
 }
 if (node.nodeType !== 1) return;
-
 ["placeholder", "title", "aria-label"].forEach(function (a) {
 const raw = node.getAttribute && node.getAttribute(a);
 if (raw) { const v = fix(raw); if (v !== null) node.setAttribute(a, v); }
@@ -720,28 +671,22 @@ if (kids) for (let i = 0; i < kids.length; i++) walk(kids[i]);
 walk(root || document.body);
 return n;
 }
-
 function relocalize() {
 try { if (typeof DATA.applyEnOverlay === "function") DATA.applyEnOverlay(); } catch (e) {}
 try { renderHud(); } catch (e) {}
-
 try { if (window.HengFx && window.HengFx.buildAudioDock) window.HengFx.buildAudioDock(); } catch (e) {}
-
 try { renderMap(); } catch (e) {}
 try { localizeDom(document.body); } catch (e) {}
 }
 function setLang(code) {
 if (DATA.langCodes.indexOf(code) < 0) return;
 if (code === curLang()) return;
-
 try { localStorage.removeItem(LANG_KEY); } catch (e) {}
 location.href = (code === "en") ? "index.en.html" : "index.html";
 }
-
 function setTextSpeed(v) {
 const n = Math.max(0, parseInt(v, 10) || 0);
 if (S) { S.textSpeed = n; saveGame(true); }
-
 try {
 document.querySelectorAll("#dockPanel [data-textspeed]").forEach(function (x) {
 x.classList.toggle("btn-primary", String(n) === x.getAttribute("data-textspeed"));
@@ -750,25 +695,21 @@ x.classList.toggle("btn-primary", String(n) === x.getAttribute("data-textspeed")
 return n;
 }
 try { window.setTextSpeed = setTextSpeed; } catch (e) {}
-
 function refreshHonor() {
 try { renderHud(); } catch (e) {}
 try { saveGame(true); } catch (e) {}
 }
-
 function duelNextRound() {
 if (!D_ || D_.phase !== "fight") return;
 const A = D_.a, B = D_.b;
 if (A.hp <= 0 || B.hp <= 0) return;
 D_.round++;
 const r = D_.round;
-
 let first = A, second = B;
 if (B.speed > A.speed || (B.speed === A.speed && Math.random() < 0.5)) { first = B; second = A; }
 duelLog("l-sys", "—— 第 " + r + " 回合。");
 duelStrike(first, second, r);
 if (second.hp > 0 && first.hp > 0) duelStrike(second, first, r);
-
 [A, B].forEach((f) => {
 if (f.bleed > 0 && f.hp > 0) {
 const d = Math.max(1, Math.round(f.bleedDmg));
@@ -788,7 +729,6 @@ duelSettle();
 }
 renderDuel();
 }
-
 function duelStrike(atkF, defF, round) {
 const pool = atkF.pool.length ? atkF.pool : ["e_claw"];
 const mid = pool[Math.floor(Math.random() * pool.length)];
@@ -833,7 +773,6 @@ dmg + " 点" + (m.multi && m.multi > 1 ? "（" + m.multi + " 段）" : "") + "�
 if (m.bleed) { defF.bleed = 2; defF.bleedDmg = Math.max(2, dmg * 0.22); }
 if (m.dodge) { atkF.dodgeReady = m.dodge; }
 }
-
 function duelSettle() {
 if (!D_ || !D_.side) return;
 const odds = duelSideOdds(D_.side);
@@ -855,19 +794,16 @@ duelLog("l-dead", "—— 你押的【" + D_[D_.side].name + "】输了。押注
 " 功勋已扣（押 " + D_.bet + " × " + odds.toFixed(1) + "）。");
 }
 refreshHonor();
-
 try {
 if (win) toast("押中！+" + gross + " 功勋（本金 " + D_.bet + " 返还 + 赢得 " + D_.payout + "）");
 else toast("押错，" + D_.bet + " 功勋已扣。");
 } catch (e) {}
-
 try {
 setTimeout(function () {
 try { if (typeof D_ !== "undefined" && D_ && D_.phase === "over") newDuelMatch(); } catch (e2) {}
 }, 1400);
 } catch (e) {}
 }
-
 const SP_SQUAD_CAP = 8;
 let restartRowEl = null; 
 function spDone() { return (S && S.specialBoss) || null; }
@@ -924,12 +860,13 @@ openSpSquad(b.id);
 };
 });
 }
-
 function openSpSquad(bossId) {
 const b = DATA.specialBosses.find((x) => x.id === bossId);
 if (!b) return;
 
-if (!S.spDraft) S.spDraft = (S.squad || []).slice();
+S.spSquad = (S.spSquad || []).filter((id) => allyById(id)).slice(0, SP_SQUAD_CAP);
+if (!S.spSquad.length) S.spSquad = (S.squad || []).slice(0, SP_SQUAD_CAP);
+if (!Array.isArray(S.spDraft)) S.spDraft = S.spSquad.slice();
 const draft = S.spDraft;
 const allies = S.allies || [];
 let html = "<p style='color:var(--muted)'>这一战你的<b>编队上限临时扩到 " + SP_SQUAD_CAP +
@@ -982,20 +919,18 @@ else if (a === "squad") { S.spDraft = (S.squad || []).slice(0, SP_SQUAD_CAP); op
 else if (a === "back") { S.spDraft = null; openSpecialBosses(); }
 else if (a === "go") {
 if (!S.spDraft.length) { toast("至少要带一个人。"); return; }
-
 askConfirm("确认挑战",
 "确定挑战【" + b.name + "】？<br><br>进入后另一位将永久关闭，无法反悔。",
 "进 入 会 台",
 function () {
-const draft = (S.spDraft || []).slice();
+S.spSquad = (S.spDraft || []).slice(0, SP_SQUAD_CAP);
 S.spDraft = null;
-startSpecialBoss(bossId, draft);
+startSpecialBoss(bossId);
 }, true);
 }
 };
 });
 }
-
 function startSpecialBoss(bossId, draftSquad) {
 const b = DATA.specialBosses.find((x) => x.id === bossId);
 if (!b) return;
@@ -1003,21 +938,20 @@ if (spDone() && spDone() !== bossId) { toast("另一位已经关闭了。"); ret
 const e = DATA.enemies[b.enemy];
 if (!e) { toast("BOSS 数据缺失。"); return; }
 
-
-const clean = (draftSquad || S.squad || []).filter((id) => allyById(id)).slice(0, SP_SQUAD_CAP);
+let clean = (S.spSquad || []).filter((id) => allyById(id)).slice(0, SP_SQUAD_CAP);
+if (!clean.length) clean = (S.squad || []).filter((id) => allyById(id)).slice(0, SP_SQUAD_CAP);
 if (!clean.length) {
 toast("这一战需要至少 1 名可用成员。先去「编队」安排上场的人。");
 return;
 }
-S.spPrevSquad = (S.squad || []).slice();
-S.squad = clean;
+S.spSquad = clean.slice();
 S.specialBoss = bossId; 
 S.spActive = true; 
 closeModal();
-
 try {
 const stage = {
 type: "battle", boss: true, bossId: b.enemy, spBoss: bossId,
+squadOverride: clean.slice(),
 title: "全力 · " + b.short,
 enemy: b.enemy, enemyKeys: [b.enemy],
 enemyScale: 1,
@@ -1034,30 +968,33 @@ B.spBoss = bossId;
 B.noItem = true;
 B.noHeal = true;
 
-const bossHp = Math.round(1500 + S.level * 420);
+const isSiyuan = (bossId === "siyuan_godking");
+const bossHp = isSiyuan ? Math.round(2600 + S.level * 620) : Math.round(1500 + S.level * 420);
 (B.enemies || []).forEach(function (en) {
 en.maxHp = bossHp;
 en.hp = bossHp;
-en.atkLevel = Math.round(16 + S.level * 1.5);
-en.defLevel = Math.round(11 + S.level * 1.1);
-en.speed = Math.round(15 + S.level * 0.45);
+en.atkLevel = Math.round((isSiyuan ? 22 : 16) + S.level * (isSiyuan ? 1.95 : 1.5));
+en.defLevel = Math.round((isSiyuan ? 15 : 11) + S.level * (isSiyuan ? 1.45 : 1.1));
+en.speed = Math.round((isSiyuan ? 18 : 15) + S.level * (isSiyuan ? 0.55 : 0.45));
 en.isBoss = true;
-en.dmgMul = 1.45;
+en.dmgMul = isSiyuan ? 1.75 : 1.45;
+
+if (isSiyuan) {
+en.coins = Math.min(8, (en.coins || 4) + 2);
+en.shield = Math.round(bossHp * 0.15);
+}
 if (b.pool && b.pool.length) en.moves = b.pool.filter((m) => DATA.moves[m]);
 });
 renderBattle();
 logLine("l-boss", "【" + b.name + "】封印全开。这一战你的编队扩到 " + SP_SQUAD_CAP + " 人，但另一方已经被你关上了门。");
 }
-
 if (!B || !B.enemies || !B.enemies.length || (typeof UI === "undefined" || UI.screen !== "battle")) {
 throw new Error("战斗场景没有建立（B=" + (B ? "有" : "无") +
 " 敌人=" + (B && B.enemies ? B.enemies.length : 0) + "）");
 }
 } catch (err) {
-
 if (S) {
 S.spActive = false;
-if (S.spPrevSquad) { S.squad = S.spPrevSquad.slice(); S.spPrevSquad = null; }
 S.specialBoss = null;
 saveGame(true);
 }
@@ -1065,7 +1002,6 @@ try { renderMap(); show("map"); } catch (e2) {}
 toast("进入全力战斗时出错：" + (err && err.message ? err.message : err));
 }
 }
-
 function grantSpReward(bossId) {
 const b = DATA.specialBosses.find((x) => x.id === bossId);
 if (!b) return;
@@ -1097,7 +1033,6 @@ box("兵装", (DATA.weapons.find((w) => w.id === r.weaponId) || {}).name || "—
 "<p style='color:var(--gold2)'>另一位全功率形态已永久关闭。特殊角色只能拥有一个。</p>" +
 "<p style='color:var(--muted)'>他已经加入名册，可以在「编队」里带上场。</p>");
 }
-
 function onModalOpen() {
 try { const m = el("modal"); return !!(m && m.classList && m.classList.contains("on")); }
 catch (e) { return false; }
@@ -1124,7 +1059,6 @@ duelHpBar(f) +
 }
 function renderDuel() {
 if (!D_) return;
-
 if (!el("modalBody")) return;
 const A = D_.a, B = D_.b;
 let html = "";
@@ -1195,12 +1129,10 @@ html += "<div class='set-row set-btns' style='margin-top:10px'>" +
 "</div>";
 }
 }
-
 if (!onModalOpen()) openModal("斗蛐蛐", "");
 el("modalTitle").textContent = "斗蛐蛐";
 el("modalBody").innerHTML =
 "<p style='color:var(--muted)'>斗蛐蛐 —— 押注用的是功勋，赌的是剧情角色之间的胜负。</p>" + html;
-
 const lg = el("duelLog");
 if (lg) {
 lg.innerHTML = D_.log.map(function (l) {
@@ -1212,7 +1144,6 @@ return "<p style='color:" + col + "'>" + l.text + "</p>";
 }).join("");
 lg.scrollTop = lg.scrollHeight;
 }
-
 $$("#modalBody [data-duelside]").forEach(function (c) {
 c.onclick = function () {
 if (D_.phase !== "bet") return;
@@ -1235,7 +1166,6 @@ else if (a === "next") duelNextRound();
 else if (a === "auto") { let g = 0; while (D_ && D_.phase === "fight" && g++ < 60) duelNextRound(); }
 else if (a === "again") { D_.phase = "bet"; D_.a = makeDuelFighter(D_.pair[0]); D_.b = makeDuelFighter(D_.pair[1]); D_.round = 0; D_.log = []; D_.winner = null; renderDuel(); }
 else if (a === "new") {
-
 if ((S.honor || 0) < 100) { toast("功勋不足（换一批需要 100）。"); return; }
 S.honor -= 100;
 refreshHonor();
@@ -1247,7 +1177,6 @@ else if (a === "close") closeModal();
 };
 });
 }
-
 function dayKey(ts) {
 const d = ts ? new Date(ts) : new Date();
 const p = (n) => (n < 10 ? "0" + n : String(n));
@@ -1280,7 +1209,6 @@ need:()=> 1 },
 { kind:"arenaBattle", title:"指定战场 · 异界裂隙", brief:"去无垠厅第二层打一场。", need:()=>1, tier:1 },
 { kind:"arenaBattle", title:"指定战场 · 骸域外围", brief:"去无垠厅第三层打一场。", need:()=>1, tier:2 }
 ];
-
 function rollCommissions() {
 const pool = COMMISSION_POOL.slice();
 const total = DATA.recruit.costTen;
@@ -1394,10 +1322,8 @@ const html = "<div class='cm" + (got ? " claimed" : (ok ? " ready" : "")) + "'>"
 (got ? "　·　已交付" : "") + "</div>" +
 (acts ? "<div class='cm-act'>" + acts + "</div>" : "") +
 "</div>";
-
 return { id: cm.id, got: got, html: html };
 });
-
 const cards = allItems.filter((x) => !x.got).map((x) => x.html).join("");
 const doneCards = allItems.filter((x) => x.got).map((x) => x.html).join("");
 openModal("委托 · 每日任务",
@@ -1433,8 +1359,6 @@ openArena(isNaN(t) ? 0 : t, df);
 });
 $$("#modalBody [data-cmboss]").forEach((b) => { b.onclick = () => { closeModal(); openBosses(); }; });
 }
-
-
 const MyMusic = { list: [], idx: -1, audio: null, volume: 0.7, loop: true, duckGame: true };
 function myMusicEl() {
 if (!MyMusic.audio) {
@@ -1462,7 +1386,6 @@ a.loop = MyMusic.loop && n === 1;
 const pr = a.play();
 if (pr && pr.catch) pr.catch(function () {});
 } catch (e) { toast("播放失败：" + (e && e.message ? e.message : e)); }
-
 if (MyMusic.duckGame && window.HengAudio && window.HengAudio.stop) {
 try { window.HengAudio.stop(); } catch (e) {}
 }
@@ -1591,6 +1514,100 @@ try {
 if (el("modal") && el("modal").classList && el("modal").classList.contains("on")) openMyMusic();
 } catch (e) {}
 }
+
+const ACTIVITIES = {
+perm: [
+{
+id: "duel", icon: "🦗", name: "斗蛐蛐",
+sub: "押注 · 拼点",
+desc: "赌坊的老规矩：两只蛐蛐丢进斗盆，谁的点大谁赢。\n看准了押，功勋翻着涨。",
+open: function () { openDuel(); }
+}
+],
+dated: [
+{
+id: "commissions", icon: "📜", name: "委托",
+sub: "每日刷新",
+desc: "今天有今天的活。明天太阳升起来，又是一批新的。",
+resetLabel: "距刷新",
+open: function () { openCommissions(); }
+}
+]
+};
+function activityById(id) {
+const all = ACTIVITIES.perm.concat(ACTIVITIES.dated);
+for (let i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+return null;
+}
+function openActivities() {
+const dated = ACTIVITIES.dated || [];
+let html = "<p style='color:var(--muted)'>" + tr("游戏里能反复打的东西都收在这里。") +
+tr("随时可玩；") + tr("按天刷新，注意倒计时。") + "</p>";
+
+html += "<h4>" + tr("常驻活动") + "</h4>";
+if (!ACTIVITIES.perm.length) {
+html += "<p class='muted'>" + tr("暂时还没有常驻活动。") + "</p>";
+} else {
+html += "<div class='codex-grid'>";
+ACTIVITIES.perm.forEach(function (a) {
+html += "<div class='codex-card' data-actgo='" + a.id + "'>" +
+"<div class='cc-name'>" + a.icon + " " + a.name + "</div>" +
+"<div class='cc-sub'>" + tr(a.sub) + "</div>" +
+"<div class='cc-sub' style='color:var(--muted);white-space:pre-line'>" + tr(a.desc) + "</div>" +
+"<div class='cc-sub'><button class='btn btn-tiny btn-primary' data-actgo='" + a.id + "'>" + tr("进 入") + "</button></div>" +
+"</div>";
+});
+html += "</div>";
+}
+
+html += "<h4 style='margin-top:14px'>" + tr("日期活动") + "</h4>";
+if (!dated.length) {
+html += "<p class='muted'>" + tr("当前没有进行中的限时活动。有新的会出现在这里。") + "</p>";
+} else {
+const left = msUntilReset();
+html += "<div class='codex-grid'>";
+dated.forEach(function (a) {
+html += "<div class='codex-card' data-actgo='" + a.id + "'>" +
+"<div class='cc-name'>" + a.icon + " " + a.name + "</div>" +
+"<div class='cc-sub'>" + tr(a.sub) + "</div>" +
+"<div class='cc-sub' style='color:var(--muted);white-space:pre-line'>" + tr(a.desc) + "</div>" +
+"<div class='cc-sub'>" + tr(a.resetLabel || "距刷新") + " " +
+"<span style='color:var(--gold2)' data-resettimer>" + fmtDur(left) + "</span></div>" +
+"<div class='cc-sub'><button class='btn btn-tiny btn-primary' data-actgo='" + a.id + "'>" + tr("进 入") + "</button></div>" +
+"</div>";
+});
+html += "</div>";
+}
+openModal("活动", html);
+
+$$("#modalBody [data-actgo]").forEach(function (b) {
+b.onclick = function (ev) {
+if (ev && ev.stopPropagation) ev.stopPropagation();
+const a = activityById(b.getAttribute("data-actgo"));
+if (!a) return;
+closeModal();
+try { a.open(); } catch (e) { toast("打不开：" + (e && e.message ? e.message : e)); }
+};
+});
+
+if (dated.length) {
+try {
+if (window.__hengActTimer) clearInterval(window.__hengActTimer);
+window.__hengActTimer = setInterval(function () {
+const host = el("modal");
+if (!host || !host.classList || !host.classList.contains("on")) {
+clearInterval(window.__hengActTimer); window.__hengActTimer = null; return;
+}
+
+const t = document.querySelectorAll("#modalBody [data-resettimer]");
+if (t && t.length) {
+const v = fmtDur(msUntilReset());
+for (let i = 0; i < t.length; i++) t[i].textContent = v;
+}
+}, 1000);
+} catch (e) {}
+}
+}
 function openSettings() {
 const on = (b) => (b ? "开" : "关");
 const musicOn = !(S && S.music === false);
@@ -1607,7 +1624,6 @@ DATA.langCodes.map((c) =>
 "' data-lang='" + c + "'>" + DATA.langNames[c] + "</button>").join("") +
 "</div>" +
 "<h4>音频</h4>" +
-
 "<div class='set-row'><span>自定音乐</span>" +
 "<button class='btn btn-tiny" + (MyMusic.list.length ? " btn-primary" : "") +
 "' data-set='mymusic'>" +
@@ -1639,7 +1655,6 @@ Math.round(((S && S.sfxVol !== undefined) ? S.sfxVol : 0.8) * 100) + "'></div>" 
 "<button class='btn btn-tiny' data-set='quit'>退出游戏</button>" +
 "</div>";
 openModal("设置", html);
-
 $$("#modalBody [data-lang]").forEach((b) => {
 b.onclick = () => {
 const c = b.getAttribute("data-lang");
@@ -1705,20 +1720,16 @@ openSettings();
 };
 });
 }
-
-
 function diffRank(id) { return { normal:0, hard:1, true:2 }[id] || 0; }
 function canRestartTo(id) {
 if (!S) return false;
 const cur = diffIdRaw();
 if (id === cur) return false;
-
 if (diffRank(id) <= diffRank(cur)) return false;
 if (id === "hard" && !S.hardUnlocked) return false;
 if (id === "true" && !S.trueUnlocked) return false;
 return true;
 }
-
 function nextRestartTier() {
 if (!S) return null;
 const cur = diffIdRaw();
@@ -1752,7 +1763,6 @@ if (id === "hard" && !S.hardUnlocked) { toast("困难还没解锁。"); return; 
 if (id === "true" && !S.trueUnlocked) { toast("真实还没解锁。"); return; }
 const nm = DATA.difficulties[id].name;
 if (force) {
-
 doRestartTo(id, nm);
 return;
 }
@@ -1772,14 +1782,12 @@ try { window.HengApp.quit(); return; } catch (e) {}
 toTitle();
 return;
 }
-
 if (!confirm("浏览器里没法真正关闭程序。\n\n要回到标题界面吗？进度已保存。")) return;
 saveGame(true);
 try { if (window.HengAudio) window.HengAudio.stop(); } catch (e) {}
 toTitle();
 toast("已回到标题界面。浏览器版无法自动关闭窗口。");
 }
-
 window.HengApp_onBack = function () {
 try {
 const m = el("modal");
@@ -1790,7 +1798,6 @@ toTitle();
 return 1;
 } catch (e) { return 0; }
 };
-
 let askState = null;
 function askConfirm(title, text, okLabel, fn, danger) {
 askState = { fn: fn, restore: null };
@@ -1811,7 +1818,6 @@ if (f) { try { f(); } catch (e) {} }
 };
 if (no) no.onclick = function () { askState = null; closeModal(); };
 }
-
 function openSaveSlots() {
 const list = slotList();
 const act = activeSlot();
@@ -1882,7 +1888,6 @@ doLoadSlot(key);
 function doLoadSlot(key) {
 const raw = loadFromSlot(key);
 if (!raw) { toast("该存档位是空的。"); return; }
-
 try {
 setActiveSlot(key);
 const loaded = applyLoadedSave(raw);
@@ -1898,7 +1903,6 @@ toast("读取失败：" + (e && e.message ? e.message : "存档可能已损坏")
 if (S) { try { renderMap(); } catch (e2) {} }
 }
 }
-
 function openSaveNotes() {
 openModal("存档注意事项",
 "<p><b class='k'>1. 桌面版（浏览器）</b><br>" +
@@ -1910,7 +1914,6 @@ openModal("存档注意事项",
 "在存档位面板点 <b>导出存档</b>，会复制一段文本。把它存到备忘录 / 网盘 / 聊天记录里。换设备或重装后点 <b>导入存档</b> 粘贴回来即可。</p>" +
 "<p style='color:var(--muted)'>建议：每个存档位单独导出一次，按「姓名 + 日期」命名保存。</p>");
 }
-
 function exportSave() {
 const payload = {
 v: 1,
@@ -2008,8 +2011,6 @@ openSaveSlots();
 const ci = document.getElementById("cancelImport");
 if (ci) ci.onclick = () => closeModal();
 }
-
-
 function normalizeAllyJobs() {
 if (!S || !S.allies) return;
 (S.allies || []).forEach(function (a) {
@@ -2031,15 +2032,10 @@ if (!S.spent) S.spent = { atk:0, def:0, spd:0, will:0, hpBonus:0 };
 if (!S.allied) S.allied = {};
 if (!S.allies) { S.allies = starterAllies(); S.squad = [S.allies[0].id]; invalidateAllyIndex(); }
 if (!S.squad) S.squad = (S.allies[0] ? [S.allies[0].id] : []);
-
 try { syncHero(); } catch (e) {}
-
 if (S.spActive) {
 S.spActive = false;
-if (S.spPrevSquad && S.spPrevSquad.length) {
-S.squad = S.spPrevSquad.slice();
-S.spPrevSquad = null;
-}
+
 }
 try { normalizeSquad(); } catch (e) {}
 if (!S.weapons) S.weapons = [];
@@ -2067,7 +2063,6 @@ equipList();
 const out = S;
 return out;
 }
-
 function everLineage() {
 return (DATA.ever || []).map((e, i) => ({ e: e, idx: i }));
 }
@@ -2095,8 +2090,6 @@ openModal("恒永者年表",
 "<p style='color:var(--muted);margin-top:14px'>注：源设定里各任的出生年份大多没有写全，" +
 "所以世代之间的<b>具体间隔年数无法计算</b>。这里只保留能确证的部分——就任年龄与先后顺序。</p>");
 }
-
-
 function refreshDifficultyButton() {
 const b = document.querySelector('[data-act="difficulty"]');
 if (!b) return;
@@ -2151,7 +2144,6 @@ el("hudStats").innerHTML =
 (devOn() ? '<span style="color:#ffd76b">开发模式 <button class="btn btn-tiny" data-act="dev" style="margin-left:6px">DEV</button></span>' : "") +
 '<span><button class="btn btn-tiny" data-act="speed">演出：' + (S.animSpeed === "slow" ? "慢" : S.animSpeed === "fast" ? "快" : "标准") + "</button></span>";
 }
-
 function enterChapter() {
 const i = UI.selectedChapter;
 const ch = DATA.chapters[i];
@@ -2159,7 +2151,6 @@ const cs = chapterState(i);
 const isFinal = i >= DATA.chapters.length - 1;
 if (cs.stages >= ch.stages.length) {
 if (cs.done) {
-
 if (isFinal) { replayChapter(i); return; }
 toast("这一传已经走完了。");
 return;
@@ -2170,7 +2161,6 @@ S.replay = false;
 S.chapterIndex = i; S.stage = cs.stages;
 startStage();
 }
-
 function replayChapter(i) {
 const cs = chapterState(i);
 S.replay = true;
@@ -2185,7 +2175,6 @@ toast("重看终局 · 不会影响你的进度");
 }
 function finishChapter(i) {
 const ch = DATA.chapters[i];
-
 if (S && S.replay) {
 const rs = S.replaySaved || {};
 const cs2 = chapterState(i);
@@ -2203,7 +2192,6 @@ return;
 }
 chapterState(i).done = true;
 if ((S.unlocked || 1) < i + 2) S.unlocked = Math.min(i + 2, DATA.chapters.length);
-
 const ever = DATA.ever.find((e) => e.id === ch.key);
 let allyLine = "";
 if (ever) {
@@ -2215,7 +2203,6 @@ ever.summon.name + "：" + ever.summon.text + "</p>" +
 (S.summonId ? "" : "<p style='color:var(--gold2)'>你还没有择定本命结缘者。前往「队伍」面板选定一位，即可在战斗中唤其「降神」。</p>");
 }
 }
-
 if (i >= DATA.chapters.length - 1) {
 const wasCleared = !!S.gameCleared;
 const clearedOn = diffId();
@@ -2288,7 +2275,6 @@ if (item.kind === "choice") return renderChoice(item);
 if (item.kind === "award") return renderAward(item);
 if (item.kind === "battleIntro") return renderBattleIntro(item.stage);
 }
-
 function revealStoryText(node, text, onDone) {
 setNext(null);
 if (advanceHint) advanceHint.textContent = "点击任意处可加速显示";
@@ -2386,7 +2372,6 @@ openModal("这一幕已结束",
 "<p>当前进度：第 " + cs.stages + " / " + ch.stages.length + " 幕。</p>" +
 "<p style='color:var(--muted)'>返回列传地图可继续推进。</p>");
 }
-
 function prepStage(stage) {
 if (stage.enemyKeys) return stage;
 const base = DATA.enemies[stage.enemy];
@@ -2404,14 +2389,12 @@ stage.enemyHp = 0.70;
 stage.enemyHp = 0.92;
 }
 stage.enemyKeys = keys;
-
 const dc = diffConf();
 stage.enemyHp = (stage.enemyHp || 1) * (dc.hp || 1);
 stage.enemyAtk = (stage.enemyAtk || 1) * (dc.atk || 1);
 stage.enemyDef = dc.def || 1;
 return stage;
 }
-
 function battleInfo() {
 if (!B) return null;
 return {
@@ -2423,7 +2406,6 @@ allyHp: B.units.map(function (u) { return Math.round(u.hp); })
 };
 }
 try { window.battleInfo = battleInfo; } catch (e) {}
-
 const SP_MIN = -45, SP_MAX = 45;
 const PANIC_AT = -30;
 const CLASH_CAP = 99;
@@ -2439,18 +2421,6 @@ marks.push(h);
 }
 return { heads: heads, marks: marks };
 }
-
-function finalPower(unit, skill, nCoins) {
-const coins = Math.max(0, nCoins === undefined ? skill.coins : nCoins);
-if (coins <= 0) return { power: 0, heads: 0, marks: [], base: 0 };
-const f = flipCoins(coins, safeNum(unit.sp, 0));
-const cb = safeNum(skill.coin, 1) + safeNum(unit.coinBonus, 0);
-const base = safeNum(skill.base, 6) + safeNum(unit.atkLevel, 6);
-var pw = base + f.heads * Math.max(1, cb);
-if (!isFinite(pw)) pw = 1;
-return { power: Math.max(1, Math.round(pw)), heads: f.heads, marks: f.marks, base: base };
-}
-
 function safeNum(v, d) { return (typeof v === "number" && isFinite(v)) ? v : (d || 0); }
 function coinDamage(atkUnit, defUnit, skill, coinsLeft, clashWins) {
 const atkLv = safeNum(atkUnit.atkLevel, 6) + minPow(skill);
@@ -2461,13 +2431,11 @@ if (skill.kind === "true") per *= 1.22;
 let dmg = per * Math.max(1, coinsLeft) * (defUnit && defUnit.isPlayer ? 0.78 : 1);
 dmg *= (1 + Math.max(0, clashWins || 0) * 0.03);
 dmg *= rnd(0.94, 1.06);
-
 const shield = safeNum(defUnit && defUnit.shield, 0);
 if (shield > 0) {
 const absorbed = Math.min(shield, dmg);
 dmg -= absorbed;
 }
-
 if (dmg > 0) dmg = dmg - dLv * 0.12;
 const floor = Math.max(1, Math.round(atkLv * 0.75));
 dmg = Math.max(floor, dmg);
@@ -2480,27 +2448,11 @@ let m = 1;
 u.buffs.forEach((b) => { if (b.stat === "atk" && b.mult) m *= b.mult; });
 return m;
 }
-function effDefMult(u) {
-let m = 1;
-u.buffs.forEach((b) => { if (b.stat === "def" && b.mult) m *= b.mult; });
-return m;
-}
 function effSpd(u) {
 let m = 1;
 u.buffs.forEach((b) => { if (b.stat === "spd" && b.mult) m *= b.mult; });
 return Math.max(1, Math.round(u.speed * m));
 }
-function effAtkLevel(u) {
-let m = 1;
-u.buffs.forEach((b) => { if (b.stat === "atk" && b.mult) m *= b.mult; });
-return Math.max(1, Math.round((u.atkLevel + (u.weapon ? (u.weapon.atk || 0) : 0)) * m));
-}
-function weaponCoinBonus(u) {
-let n = u.weapon ? (u.weapon.coin || 0) : 0;
-u.buffs.forEach((b) => { if (b.stat === "coin") n += (b.amount || 0); });
-return n;
-}
-
 function makeUnit(o) {
 o = o || {};
 const w = o.weapon || null;
@@ -2522,7 +2474,6 @@ u.maxHp = Math.max(1, Math.round(safeNum(u.maxHp, 100)));
 u.hp = Math.max(0, Math.round(safeNum(u.hp, u.maxHp)));
 u.speed = Math.max(1, Math.round(safeNum(u.speed, 6)));
 u.sp = Math.max(SP_MIN, Math.min(SP_MAX, Math.round(safeNum(u.sp, 20))));
-
 if (!u.moves) {
 if (u.side === "enemy") {
 u.moves = (o.movePool && o.movePool.length) ? o.movePool :
@@ -2572,9 +2523,7 @@ weapon: w, abilities: allyAbilities(ally, w),
 coins: st.coins, isPlayer: true, ally: ally, color: ally.color, rarity: ally.rarity,
 });
 }
-
 let BAL = { enemyHp: 1, enemyAtk: 1, playerHp: 1, playerAtk: 1, enemyDef: 1 };
-
 function hpWeight(baseHp) {
 const h = baseHp || 90;
 if (h <= 1500) return 1;
@@ -2583,10 +2532,8 @@ return Math.pow(1500 / h, 0.45);
 function enemyUnitFor(key, idx, scaleMul, hpMul, atkMul) {
 const e = DATA.enemies[key];
 const lv = S.level;
-
 const hp = Math.round(e.hp * hpWeight(e.hp) * (0.55 + lv * 0.048) * (hpMul || 1) * (scaleMul || 1) * BAL.enemyHp);
 const atkLv = Math.max(2, Math.round(e.atk * (0.72 + lv * 0.074) * (atkMul || 1) * (scaleMul || 1) * 1.05 * BAL.enemyAtk));
-
 const styleMap = {
 slash: ["m_jab", "m_slash", "m_chop", "m_hook"],
 pierce: ["m_thrust", "m_pierce", "m_stab", "m_silent"],
@@ -2596,7 +2543,6 @@ drain: ["m_hook", "m_stab", "m_chop"],
 healself: ["m_guard", "m_bulwark", "m_jab"]
 };
 const eSkills = (e.skills || []).map((k) => DATA.coinSkill[k]).filter(Boolean);
-
 const spec = (DATA.enemyPools || {})[key];
 let pool = (spec && spec.pool && spec.pool.length) ? spec.pool.slice()
 : ((DATA.enemyPoolDefault && DATA.enemyPoolDefault.length) ? DATA.enemyPoolDefault.slice() : null);
@@ -2624,7 +2570,6 @@ const e = DATA.enemies[def.enemy] || def;
 const ks = (e.skills || ["claw"]).map((k) => DATA.coinSkill[k]).filter(Boolean);
 return ks.length ? ks : [DATA.coinSkill.claw];
 }
-
 function abilityToCoin(id) {
 const a = DATA.abilities[id];
 if (!a) return null;
@@ -2637,23 +2582,15 @@ bleed: a.bleedMult, bleedTurns: a.bleedTurns, powerHeal: a.powerHeal, instant: a
 atkBonus: a.atkBonus || 0, target: a.target || (a.kind === "healself" || a.kind === "cleanse" ? "self" : "enemy")
 };
 }
-function unitSkillList(u) {
-if (u.side === "enemy") {
-const def = B.enemyDefs[u.uid];
-return enemyCoinSkills(def);
-}
-return u.abilities.map(abilityToCoin).filter(Boolean);
-}
-
 function startBattle(stage) {
-
-const bad = squadLegality();
+const spOverride = Array.isArray(stage.squadOverride) ? stage.squadOverride : null;
+const bad = squadLegality(spOverride, spOverride ? SP_SQUAD_CAP : null);
 if (bad) {
 toast(bad);
-try { if (typeof openSquad === "function") openSquad(); } catch (e) {}
+if (!spOverride) { try { if (typeof openSquad === "function") openSquad(); } catch (e) {} }
 return false;
 }
-const squad = squadUnits();
+const squad = squadUnits(spOverride);
 if (!squad.length) { toast("编队是空的。先到「编队」里安排上场成员。"); return false; }
 B = {
 stage: stage, round: 0, phase: "assign", over: false, locked: false,
@@ -2661,7 +2598,6 @@ units: [], enemies: [], enemyDefs: {}, sel: 0, selSkill: 0, log: [],
 arena: !!stage.arena, arenaTier: stage.arenaTier, scripted: false
 };
 squad.forEach((u) => B.units.push(u));
-
 S.unitsHp = S.unitsHp || {};
 const keys = stage.enemyKeys || [stage.enemy];
 keys.forEach((k, i) => {
@@ -2669,7 +2605,6 @@ const u = enemyUnitFor(k, i, stage.enemyScale || 1, stage.enemyHp || 1, stage.en
 B.enemies.push(u);
 B.enemyDefs[u.uid] = { enemy: k };
 });
-
 const assistList = injectAssists(stage);
 el("btlTitle").textContent = stage.title + " ｜ " + B.enemies.map((e) => e.name).join("、") +
 (assistList.length ? "　＋援助 " + assistList.map((u) => u.name).join("、") : "") +
@@ -2694,7 +2629,6 @@ if (B.over) return;
 B.round++;
 el("btlTurn").textContent = "回合 " + B.round;
 B.phase = "assign";
-
 B.units.concat(B.enemies).forEach((u) => {
 if (!u.alive) return;
 if (u.isPlayer) u.sp = clamp(u.sp + 2, SP_MIN, SP_MAX);
@@ -2726,11 +2660,10 @@ const tgt = targets.length ? targets[Math.floor(Math.random() * targets.length)]
 e.intent = { skill: sk, targetUid: tgt ? tgt.uid : null, targetName: tgt ? tgt.name : "—" };
 if (i === 0 && DATA.enemies[B.enemyDefs[e.uid].enemy]) {
 const ph = DATA.enemies[B.enemyDefs[e.uid].enemy].phases;
-if (ph && ph[0] && !B.phaseShown) {  }
+if (ph && ph[0] && !B.phaseShown) { }
 }
 });
 }
-
 function autoComboFor(u) {
 const C = window.HengCombo;
 if (!C) return ["m_jab"];
@@ -2741,7 +2674,6 @@ const isGuard = (id) => { const m = C.move(id); return m && m.power === 0; };
 const atk = ids.filter((id) => !isGuard(id));
 const grd = ids.filter(isGuard);
 const max = (DATA.combo && DATA.combo.maxMoves) || 4;
-
 let chain = [];
 if (u.isPlayer && hpRatio < 0.4 && grd.length) chain.push(grd[Math.floor(Math.random() * grd.length)]);
 const pool = atk.length ? atk : ids;
@@ -2763,28 +2695,7 @@ chain.push(best);
 }
 return chain;
 }
-function autoActionFor(u) {
-if (!u.alive) return null;
-if (u.panic) return { kind: "panic" };
-const live = B.enemies.filter((e) => e.alive);
-if (!live.length) return null;
-const C = window.HengCombo;
-const chain = u.isPlayer ? autoComboFor(u) : (C ? C.enemyCombo(u) : ["m_jab"]);
-let tgt = live[Math.floor(Math.random() * live.length)];
-if (u.isPlayer) {
-
-const my = B.enemies.findIndex((e) => e.intent && e.intent.targetUid === u.uid && e.alive);
-if (my >= 0) tgt = B.enemies[my];
-else if (u.actionTarget) {
-const t2 = live.find((e) => e.uid === u.actionTarget);
-if (t2) tgt = t2;
-}
-}
-return { chain: chain, targetUid: tgt.uid, kind: "combo" };
-}
-
 function selectUnit(uid) {
-
 const raw = String(uid || "");
 let i = B.units.findIndex((u) => u.uid === raw);
 if (i < 0) {
@@ -2796,30 +2707,15 @@ if (B.units[i].assist) { toast("援助角色由剧情操控，你无法指挥他
 B.sel = i;
 renderBattle();
 }
-
-function nextControllable(from) {
-const n = B.units.length;
-for (let k = 1; k <= n; k++) {
-const i = ((from + k) % n + n) % n;
-const u = B.units[i];
-if (u && u.isPlayer && u.alive && !u.assist) return i;
-}
-return -1;
-}
-function selectSkill(idx) {  }
-
-
 function bareUid(idOrUid) {
 let v = String(idOrUid || "");
 if (v.indexOf("enemy_") === 0) v = v.slice(6);
 else if (v.indexOf("ally_") === 0) v = v.slice(5);
 return v;
 }
-
 function assignTarget(uid) {
 const u = B.units[B.sel];
 if (!u || !u.alive) return;
-
 const raw = String(uid || "");
 const bare = bareUid(raw);
 const tgt = B.enemies.find((e) => e.uid === raw || e.uid === bare);
@@ -2839,7 +2735,6 @@ if (!u.actionTarget && live.length) u.actionTarget = live[0].uid;
 logLine("l-sys", "已自动为全部成员串好连段。");
 renderBattle();
 }
-
 function animScale() {
 return (S && S.animSpeed === "slow") ? 1 : (S && S.animSpeed === "fast" ? 0.45 : 0.65);
 }
@@ -2850,8 +2745,6 @@ else if (typeof flushTimers === "function") { flushTimers(); resolve(); }
 else resolve();
 });
 }
-
-
 function clashLog(allyU, enemyU, allySkill, enemySkill) {
 let ac = Math.max(1, allySkill.coins || 3);
 let ec = Math.max(1, enemySkill.coins || 3);
@@ -2877,9 +2770,7 @@ return { winner: winner, allyCoins: ac, enemyCoins: ec, wins: wins, losses: loss
 ties: ties, rounds: rounds, log: log,
 marks: [{ a: log[0] ? log[0].allyHeads : 0, e: log[0] ? log[0].enemyHeads : 0 }] };
 }
-
 function clash(a, b, as, es) { return clashLog(a, b, as, es); }
-
 function ccCoinRow(count, heads) {
 let html = "";
 for (let i = 0; i < count; i++) html += '<span class="cc-coin ' + (i < heads ? "h" : "t") + '"></span>';
@@ -2888,7 +2779,6 @@ return html;
 function ccShatter(node, index) {
 if (!node) return;
 const coins = node.children;
-
 const idx = coins.length - 1 - index;
 const c = coins[idx] || coins[coins.length - 1];
 if (c && c.classList) { c.classList.add("shatter"); c.classList.remove("h", "t"); }
@@ -2932,7 +2822,7 @@ await delay((i === 0 ? 300 : 165) * animScale());
 if (st.broke === "enemy") { ccShatter(rc, destroyedEnemy++); await delay(140 * animScale()); }
 else if (st.broke === "ally") { ccShatter(lc, destroyedAlly++); await delay(140 * animScale()); }
 else { if (el("ccRound")) el("ccRound").textContent = "平手 · 双方各留一枚"; await delay(110 * animScale()); }
-for (let k = 0; k < res.log.length; k++) {  break; }
+for (let k = 0; k < res.log.length; k++) { break; }
 }
 const v = el("ccVerdict");
 if (v) {
@@ -2947,14 +2837,12 @@ return res;
 }
 function applyHp(target, amount, label) {
 let dmg = safeNum(amount, 0);
-
 if (target && target.dodgeReady) {
 const cut = dmg * target.dodgeReady;
 dmg -= cut;
 target.dodgeReady = 0;
 try { logLine("l-sys", "　" + target.name + " 闪避，抵消 " + Math.round(cut) + " 点伤害。"); } catch (e) {}
 }
-
 if (target.shield > 0 && dmg > 0 && !target.__shieldHandled) {
 const a = Math.min(target.shield, dmg);
 target.shield -= a; dmg -= a;
@@ -2967,7 +2855,6 @@ function targetNodeOf(u) {
 return u.side === "enemy" ? "enemy_" + u.uid : "ally_" + u.uid;
 }
 function enemySide0(u) { return u && u.side === "enemy"; }
-
 async function resolveComboAction(u, a, enemySide) {
 const C = window.HengCombo;
 if (!C) return { skip: true };
@@ -2990,20 +2877,17 @@ const m = C.move(st.id);
 if (m && m.power > 0) {
 let dmg = C.damage(u, m, tgt, enemySide);
 dmg *= res.bonus || 1;
-
 if (u.dmgMul && u.side === "enemy") dmg *= u.dmgMul;
 playMoveFx(tgt.uid, m, "hit");
 const wasCrit = !!(m.crit && Math.random() < m.crit);
 if (wasCrit) dmg *= 1.35;
 let hitDmg = dmg;
-
 if (m.multi && m.multi > 1) {
 for (let k = 1; k < m.multi; k++) {
 hitDmg += dmg * 0.85;
 playMoveFx(tgt.uid, m, "hit");
 }
 }
-
 total += applyHp(tgt, hitDmg, "");
 hitFeedback(tgt.uid, hitDmg, wasCrit);
 logLine("l-hit", "　" + (i + 1) + ". 【" + st.name + "】（" + st.type + "）成功率 " + st.pct +
@@ -3028,17 +2912,14 @@ if (res.dodge) {
 u.dodgeReady = res.dodge;
 logLine("l-heal", "　进入闪避姿态（受到下次攻击时抵消 " + Math.round(res.dodge * 100) + "%）。");
 }
-
 const lastMove = res.steps.length ? C.move(res.steps[res.steps.length - 1].id) : null;
 if (lastMove && lastMove.weak) { tgt.weakNext = 1; logLine("l-sys", "　" + tgt.name + " 下一击命中率下降。"); }
 if (res.landed >= 2) logLine("l-crit", "　连段成立：命中 " + res.landed + " 招，伤害 ×" + (res.bonus || 1).toFixed(2) + "。");
 if (total > 0) floatNum(targetNodeOf(tgt), "-" + Math.round(total), res.landed >= 3 ? "crit" : "");
-
 u.sp = clamp(u.sp + res.landed * 2, SP_MIN, SP_MAX);
 return res;
 }
 async function resolveActionAsync(act) {
-
 const u = B.units.find((x) => x.uid === act.uid) || B.enemies.find((x) => x.uid === act.uid);
 if (!u || !u.alive) return null;
 const a = u.action;
@@ -3046,12 +2927,10 @@ if (!a || a.kind === "panic") {
 if (u.panic) logLine("l-dead", u.name + " 因恐慌无法行动。");
 return { skip: true };
 }
-
 if (a.chain && a.chain.length) {
 return await resolveComboAction(u, a, enemySide0(u));
 }
 const sk = a.skill;
-
 if (sk.target === "self" || sk.kind === "healself" || sk.kind === "shieldself" ||
 sk.kind === "cleanse" || sk.kind === "buff") {
 applySkillEffect(u, sk, null);
@@ -3060,13 +2939,11 @@ return { self: true };
 const enemySide = u.side === "enemy";
 const foeList = enemySide ? B.units : B.enemies;
 let tgt = foeList.find((x) => x.uid === a.targetUid && x.alive) || foeList.find((x) => x.alive);
-
 if (enemySide && u.intent && u.intent.targetUid) {
 const it = B.units.find((x) => x.uid === u.intent.targetUid && x.alive);
 if (it) tgt = it;
 }
 if (!tgt) return { skip: true };
-
 let eSkill;
 if (enemySide) {
 eSkill = abilityToCoin((tgt.action && tgt.action.skillId) || (tgt.abilities[0] || "basic")) ||
@@ -3078,7 +2955,6 @@ const res = await runClash(u, tgt, sk, eSkill);
 let clashWins = 0;
 if (res.winner === "ally") clashWins = res.wins;
 else if (res.winner === "enemy") clashWins = res.losses;
-
 if (res.winner === "ally") {
 u.sp = clamp(u.sp + 3, SP_MIN, SP_MAX);
 tgt.sp = clamp(tgt.sp - 3, SP_MIN, SP_MAX);
@@ -3091,7 +2967,6 @@ logLine(res.winner === "ally" ? "l-crit" : "l-hit",
 "【拼点】" + u.name + " 的【" + sk.name + "】 对 " + tgt.name + " 的【" + eSkill.name + "】：" +
 (res.winner === "ally" ? "胜（" + res.wins + " 次压制）" : res.winner === "enemy" ? "负（被压制 " + res.losses + " 次）" : "平") +
 " ｜ 剩余硬币 " + res.allyCoins + " vs " + res.enemyCoins + " ｜ 拼点 " + res.rounds + " 次");
-
 coinRow(u, sk.coins, res.marks[0] ? res.marks[0].a : 0, res.marks[0] ? res.marks[0].a : 0);
 coinRow(tgt, eSkill.coins, res.marks[0] ? res.marks[0].e : 0, res.marks[0] ? res.marks[0].e : 0);
 if (res.winner === "ally") {
@@ -3134,7 +3009,6 @@ logLine("l-heal", u.name + " 回复 " + Math.round(amt) + " 点生命。");
 }
 if (sk.shield || sk.baseShield || sk.powerShield) {
 let amt = u.maxHp * (sk.shield || sk.baseShield || 0.08) + (sk.powerShield ? u.atkLevel * sk.powerShield : 0);
-
 const cap = u.maxHp * 0.18;
 amt = Math.max(0, Math.min(amt, cap - u.shield));
 u.shield += amt;
@@ -3184,7 +3058,6 @@ return b.turns > 0;
 });
 u.shield = Math.max(0, u.shield - u.maxHp * 0.05);
 }
-
 const DESCEND_FX = {
 heng: { tint:"#d8b45c", aura:{ label:"恒之剑势", def:1.25, turns:3 }, shield:0.22,
 text:"剑势不散。你身前多了一道背影——他生前没挡住的那一击，这一次挡住了。" },
@@ -3213,7 +3086,6 @@ function descendEffect(eid) { return DESCEND_FX[eid] || DESCEND_FX.siyuan; }
 function playDescendFx(ev, fx) {
 const host = el("descendFx");
 if (!host) return;
-
 const skin = ev.skin || "gold";
 host.className = "on skin-" + skin;
 host.innerHTML =
@@ -3235,7 +3107,6 @@ return h;
 '<div class="df-title" style="color:' + fx.tint + '">' + (ev.no || "") + " \u00b7 " + ev.name + "</div>" +
 '<div class="df-sub">' + fx.text + "</div>";
 host.classList.add("on");
-
 try {
 const app = el("app");
 if (app && app.classList) {
@@ -3244,7 +3115,6 @@ setTimeout(function () { app.classList.remove("screen-shake"); }, 620);
 }
 } catch (e) {}
 setTimeout(() => host.classList.remove("on"), 1900);
-
 try { if (window.HengAudio) window.HengAudio.sfx("descend"); } catch (e) {}
 const mic = el("btlTitle") ? el("btlTitle").parentNode : null;
 if (mic) {
@@ -3279,7 +3149,6 @@ const self = u.maxHp * (su.selfCost || 0.12);
 u.hp = Math.max(1, u.hp - self);
 floatNum(targetNodeOf(u), "-" + Math.round(self), "");
 logLine("l-hit", u.name + " 承受了躯体无法承受的那部分：" + Math.round(self) + " 点自损。");
-
 B.units.forEach((x) => {
 if (!x.alive) return;
 if (fx.aura) {
@@ -3293,7 +3162,6 @@ if (fx.aura) x.sp = clamp(x.sp + 4, SP_MIN, SP_MAX);
 logLine("l-boss", "【降神·全队增益】" + (fx.aura ? fx.aura.label + "（" + fx.aura.turns + "回合）" : "—") +
 (fx.shield ? " ｜ 全队护盾 +" + Math.round(fx.shield * 100) + "%" : "") +
 (fx.sp ? " ｜ 全队理智 +" + fx.sp : ""));
-
 const power = (ev.power === "∞" ? 12 : parseFloat(ev.power) || 2.2);
 let total = 0;
 B.enemies.forEach((e) => {
@@ -3311,7 +3179,6 @@ logLine("l-crit", "降神之力贯穿全场，合计 " + Math.round(total) + " �
 u.cds.__summon = 5;
 B.summoner = null;
 }
-
 function livingAllies() { return B.units.filter((u) => u.alive); }
 function livingEnemies() { return B.enemies.filter((u) => u.alive); }
 function checkDeaths() {
@@ -3326,7 +3193,6 @@ async function resolveNext(i) {
 if (B.over) return;
 if (i >= B.actions.length) return endRound();
 const act = B.actions[i];
-
 const u = B.units.find((x) => x.uid === act.uid) || B.enemies.find((x) => x.uid === act.uid);
 if (!u || !u.alive) { await delay(30); return resolveNext(i + 1); }
 try {
@@ -3341,7 +3207,6 @@ await resolveActionAsync(act);
 logLine("l-sys", "（" + u.name + " 的这次出手结算异常，已跳过：" + (err && err.message) + "）");
 }
 if (B.over) return;
-
 B.enemies.forEach((e) => {
 const def = DATA.enemies[B.enemyDefs[e.uid].enemy];
 if (!def || !def.phases) return;
@@ -3369,7 +3234,6 @@ function resolveAll(fromCommit) {
 if (B.over) return;
 if (B.locked && !fromCommit) return; 
 B.locked = true;
-
 try {
 setTimeout(function () {
 if (B && !B.over && B.locked) {
@@ -3380,7 +3244,6 @@ try { renderSkills(); } catch (e) {}
 } catch (e) {}
 B.phase = "resolve";
 el("btlPhase").textContent = "拼点阶段";
-
 B.units.forEach((u) => {
 if (!u.isPlayer || !u.alive) return;
 if (!u.chain || !u.chain.length) u.chain = autoComboFor(u);
@@ -3417,7 +3280,6 @@ if (!livingAllies().length) return loseBattle();
 logLine("l-sys", "—— 回合结束。");
 beginRound();
 }
-
 function logLine(cls, text) {
 const box = el("battleLog");
 if (!box) return;
@@ -3445,25 +3307,20 @@ n.style.top = rnd(8, 62) + "%";
 zone.appendChild(n);
 setTimeout(() => n.remove(), 1000);
 }
-
 const MOVE_FX = {
-
 slash: { cls:"fx-slash", color:"#ffd76b", sfx:"slash" },
 pierce: { cls:"fx-pierce", color:"#7fd8ff", sfx:"pierce" },
 crit: { cls:"fx-crit", color:"#ff9d84", sfx:"crit" },
 blunt: { cls:"fx-blunt", color:"#e8ecf7", sfx:"blunt" },
-
 arrow: { cls:"fx-arrow", color:"#7fd8ff", sfx:"arrow" },
 arrow_pierce:{ cls:"fx-arrow", color:"#7fd8ff", sfx:"pierce" },
 rain: { cls:"fx-rain", color:"#7fd8ff", sfx:"arrow" },
-
 bolt: { cls:"fx-bolt", color:"#b48cff", sfx:"spell" },
 flame: { cls:"fx-flame", color:"#ff9d84", sfx:"spell" },
 chain: { cls:"fx-chain", color:"#b48cff", sfx:"spell" },
 meteor: { cls:"fx-meteor", color:"#ff7a5c", sfx:"meteor" },
 rune: { cls:"fx-rune", color:"#b48cff", sfx:"spell" },
 ward: { cls:"fx-ward", color:"#b48cff", sfx:"ward" },
-
 gun: { cls:"fx-gun", color:"#ffbe7a", sfx:"gun" },
 burst: { cls:"fx-burst", color:"#ffbe7a", sfx:"gun" },
 snipe: { cls:"fx-snipe", color:"#ffbe7a", sfx:"snipe" },
@@ -3472,15 +3329,12 @@ drone: { cls:"fx-drone", color:"#8b93ab", sfx:"drone" },
 turret: { cls:"fx-turret", color:"#8b93ab", sfx:"gun" },
 repair: { cls:"fx-repair", color:"#63d69a", sfx:"ward" },
 overload: { cls:"fx-overload",color:"#b48cff", sfx:"spell" },
-
 heal: { cls:"fx-heal", color:"#63d69a", sfx:"heal" },
 cure: { cls:"fx-cure", color:"#63d69a", sfx:"heal" },
 needle: { cls:"fx-needle", color:"#63d69a", sfx:"pierce" },
 field: { cls:"fx-repair", color:"#63d69a", sfx:"ward" },
-
 bulwark: { cls:"fx-bulwark", color:"#63d69a", sfx:"ward" }
 };
-
 function fxForMove(m) {
 if (!m) return MOVE_FX.blunt;
 if (m.fx && MOVE_FX[m.fx]) return MOVE_FX[m.fx];
@@ -3496,7 +3350,6 @@ if (t === "\u67aa") return MOVE_FX.pierce;
 if (t === "\u65a7") return MOVE_FX.blunt;
 return MOVE_FX.blunt;
 }
-
 function playMoveFx(targetUid, m, kind) {
 const fx = fxForMove(m);
 const node = nodeById("enemy_" + targetUid) || nodeById("ally_" + targetUid) ||
@@ -3514,7 +3367,6 @@ node.appendChild(layer);
 setTimeout(function () { if (layer.parentNode) layer.parentNode.removeChild(layer); }, 720);
 if (window.HengAudio && fx.sfx) window.HengAudio.sfx(fx.sfx);
 }
-
 function hitFeedback(targetUid, dmg, crit) {
 const node = nodeById("enemy_" + targetUid) || nodeById("ally_" + targetUid);
 if (node && node.classList) {
@@ -3529,18 +3381,6 @@ node.classList.remove("hit-hard");
 }
 floatNum(targetUid, "-" + Math.round(dmg), crit ? "crit" : "");
 try { if (window.HengAudio) window.HengAudio.sfx(crit ? "crit" : "hit"); } catch (e) {}
-}
-function shakeNode(id) {
-const n = nodeById(id);
-if (!n || !n.classList) return;
-n.classList.add("hit");
-setTimeout(() => n.classList.remove("hit"), 340);
-}
-function castNode(id) {
-const n = nodeById(id);
-if (!n || !n.classList) return;
-n.classList.add("cast");
-setTimeout(() => n.classList.remove("cast"), 480);
 }
 function coinRow(u, total, heads, _h2) {
 let s = "";
@@ -3589,7 +3429,6 @@ function renderAllyRow() {
 const row = el("allyRow");
 if (!row) return;
 row.innerHTML = "";
-
 B.units.forEach((u, i) => {
 if (!u.isPlayer && u.side !== "ally") return;
 const slot = document.createElement("div");
@@ -3617,7 +3456,6 @@ slot.onclick = () => { if (u.assist) toast("援助角色由剧情操控，你无
 row.appendChild(slot);
 });
 }
-
 function typeCls(t) {
 const C = window.HengCombo;
 const info = C && C.typeInfo ? C.typeInfo(t) : { cls: "melee" };
@@ -3668,7 +3506,6 @@ a.textContent = "›";
 chainHost.appendChild(a);
 }
 });
-
 const rest = pv.steps.length ? pv.steps[pv.steps.length - 1].cum : 100;
 const tail = document.createElement("div");
 tail.className = "combo-tail";
@@ -3676,7 +3513,6 @@ tail.innerHTML = '<span class="cs-name">整段成功率</span><span class="cs-hi
 '<span class="cs-aff">可再联合 ' + Math.max(0, (DATA.combo.maxMoves || 4) - u.chain.length) + " 招</span>";
 chainHost.appendChild(tail);
 }
-
 const maxed = u.chain.length >= (DATA.combo.maxMoves || 4);
 const ids = C.unitMoves(u);
 ids.forEach((id) => {
@@ -3697,7 +3533,6 @@ b.innerHTML =
 b.onclick = () => addMove(id);
 movesHost.appendChild(b);
 });
-
 const actHost = el("comboActions");
 if (actHost) {
 actHost.innerHTML = "";
@@ -3719,7 +3554,6 @@ u.actionTarget = live[(i + 1) % live.length].uid;
 renderBattle();
 }, !B.enemies.filter((e) => e.alive).length);
 }
-
 $$("#comboChain [data-rm]").forEach(function (cs) {
 cs.onclick = function (ev) {
 if (ev && ev.stopPropagation) ev.stopPropagation();
@@ -3761,7 +3595,6 @@ try { endRound(); } catch (e2) { B.locked = false; }
 });
 }
 }
-
 function renderSkills() {
 const bar = el("skillBar");
 if (!bar) return;
@@ -3815,7 +3648,6 @@ mk("【降神】" + ev.summon.name + (cd > 0 ? "（冷却 " + cd + "）" : ""), 
 B.locked || cd > 0, "btn-primary");
 }
 }
-
 function winBattle() {
 if (!B) return; 
 if (B.over) return;
@@ -3826,15 +3658,12 @@ logLine("l-crit", "战斗结束 —— 你赢了。");
 if (B.assists && B.assists.length) assistLeaveLines(B.assists);
 const st = B.stage;
 if (st.win) logLine("l-act", tr(st.win));
-
 if (st.spBoss) {
 S.spActive = false;
 grantSpReward(st.spBoss);
 }
 if (st.flag) { S.flags = S.flags || {}; S.flags[st.flag] = true; }
-
 syncPartyFromBattle();
-
 S.questCounters = S.questCounters || { battles:0, kills:0, killsByTag:{}, bossWins:0, arenaWins:0, fullHp:0 };
 const qc = S.questCounters;
 qc.battles = (qc.battles || 0) + 1;
@@ -3849,7 +3678,6 @@ qc.arenaWins = (qc.arenaWins || 0) + 1;
 S.arenaCleared = S.arenaCleared || {};
 const tk = arenaClearKey(B.arenaTier || 0, B.arenaDiff || "normal");
 S.arenaCleared[tk] = (S.arenaCleared[tk] || 0) + 1;
-
 if (!B.arenaDiff || B.arenaDiff === "normal") {
 const legacy = "t" + (B.arenaTier || 0);
 S.arenaCleared[legacy] = (S.arenaCleared[legacy] || 0) + 1;
@@ -3904,21 +3732,18 @@ B.over = true; B.locked = true; B.stageWin = false;
 renderBattle();
 logLine("l-dead", "全员倒下了……");
 if (B.stage && B.stage.lose && B.stage.lose.text) logLine("l-dead", B.stage.lose.text);
-
 if (B.stage && B.stage.spBoss) {
 S.spActive = false;
 S.restoreSquadAfterSp = true;
 saveGame(true);
 }
 if (B.arena) { S.arena = S.arena || { tier:0, streak:0, wins:0 }; S.arena.streak = 0; }
-
 (S.allies || []).forEach((a) => { a.hp = null; a.sp = 20; });
 setTimeout(() => showResult(false), 800);
 }
 function syncPartyFromBattle() {
 B.units.forEach((u) => {
 if (!u.ally) return;
-
 u.ally.hp = (u.alive && u.hp > 0) ? Math.round(u.hp) : null;
 u.ally.sp = Math.round(u.sp);
 u.ally.level = u.ally.level || 1;
@@ -3944,7 +3769,6 @@ S.honor += honor;
 lines.push(["l-crit", arenaTier.name + " · " + aD.name + " ｜ 连胜 " + S.arena.streak +
 " 场（经验 ×" + streakMul.toFixed(2) + "，难度 ×" + aD.exp.toFixed(2) + "）"]);
 lines.push(["l-sys", "获得功勋 " + honor + "。（当前功勋：" + S.honor + "）"]);
-
 const drop = rollDrop(arenaTier);
 if (drop) {
 gainItem(drop.id, 1);
@@ -3986,7 +3810,6 @@ mk("返 回 列 传", "btn-ghost", () => { healSquad(0.55); renderMap(); show("m
 const strict = strictNoSkip();
 if (!win) mk("再 来 一 次", "btn-primary", () => startBattle(st));
 if (strict) {
-
 mk("暂 时 撤 离（去 练 级）", win ? "btn-primary" : "btn", () => leaveToGrind());
 const lock = document.createElement("button");
 lock.className = "btn btn-ghost";
@@ -4015,46 +3838,29 @@ if (!all.length) return null;
 const pickOne = all[Math.floor(Math.random() * all.length)];
 return pickOne;
 }
-
 function strictNoSkip() {
 const d = (typeof diffId === "function") ? diffId() : ((S && S.difficulty) || "normal");
 return d === "hard" || d === "true";
 }
 function strictBlocked(st) {
-
 if (st && (st.winscripted || (st.lose && st.lose.scripted))) return false;
 return strictNoSkip();
 }
-
 function leaveToGrind() {
 healSquad(0.55);
 renderMap();
 show("map");
 toast("已撤离。这一关还没过——去无垠厅练级，或调整编队与兵装后再来。");
 }
-function spRestoreSquad() {
-if (S && S.spPrevSquad && S.spPrevSquad.length) {
-S.squad = S.spPrevSquad.slice(0, squadCap());
-S.spPrevSquad = null;
-saveGame(true);
-}
-}
 function afterBattle() {
-
 if (strictBlocked(B.stage) && !B.stageWin) {
 toast("【" + (DATA.difficulties[diffId()] || {}).name + "】难度下不能带着败绩推进 —— 请重打，或暂时撤离去练级。");
 renderBattle();
 return;
 }
-
 if (S) {
 S.spActive = false;
-if (S.spPrevSquad && S.spPrevSquad.length) {
 
-const normalCap = clamp(2 + Math.floor(Object.values(S.chapters || {}).filter((c) => c.done).length / 3), 2, 4);
-S.squad = S.spPrevSquad.slice(0, normalCap);
-S.spPrevSquad = null;
-}
 S.spDraft = null;
 S.restoreSquadAfterSp = false;
 saveGame(true);
@@ -4110,9 +3916,6 @@ const t = livingEnemies()[0];
 if (t) t.buffs.push({ stat:"def", mult:0.75, turns:2, label:"防御↓" });
 }
 }
-
-
-
 function allyGiveExp(a, amount) {
 if (!a) return 0;
 a.exp = Math.max(0, Math.floor(a.exp || 0));
@@ -4127,8 +3930,6 @@ ups++;
 if (a.level >= MAX_LEVEL) a.exp = 0;
 return ups;
 }
-
-
 const LEVEL_BANDS = [
 { id: "l1", name: "Lv.1-9", min: 1, max: 9 },
 { id: "l10", name: "Lv.10-29", min: 10, max: 29 },
@@ -4143,7 +3944,6 @@ const lv = Math.max(1, Math.floor(level || 1));
 for (const b of LEVEL_BANDS) if (lv >= b.min && lv <= b.max) return b.id;
 return "l1";
 }
-
 function groupByLevel(list) {
 const buckets = {};
 (list || []).forEach((a) => {
@@ -4161,7 +3961,6 @@ S.allies = S.allies || [];
 if (typeof syncHero === "function") { try { syncHero(); } catch (e) {} }
 return (S.allies || []).slice();
 }
-
 function giveExpJar(id) {
 const it = DATA.items.find((x) => x.id === id);
 if (!it || (it.kind !== "exp" && it.kind !== "lvup")) { toast("这不是经验罐。"); return 0; }
@@ -4230,7 +4029,6 @@ $$("#modalBody [data-jarcancel]").forEach((c) => {
 c.onclick = () => { UI.jarPick = null; openBag(); };
 });
 }
-
 function applyJar(jarId, allyId) {
 const it = DATA.items.find((x) => x.id === jarId);
 const a = (S.allies || []).find((x) => x.id === allyId);
@@ -4242,7 +4040,6 @@ if (S.bag[jarId] <= 0) delete S.bag[jarId];
 const before = a.level;
 let amount, ups;
 if (it.kind === "lvup") {
-
 amount = 0;
 ups = Math.min(it.val || 1, MAX_LEVEL - a.level);
 a.level += ups;
@@ -4250,11 +4047,9 @@ if (a.level >= MAX_LEVEL) { a.level = MAX_LEVEL; a.exp = 0; }
 ups = a.level - before;
 if (a.id === HERO_ID) { S.level = a.level; S.exp = a.exp || 0; syncHero(); }
 } else {
-
 amount = it.val || 0;
 ups = allyGiveExp(a, amount);
 }
-
 if (a.id === HERO_ID) {
 S.level = Math.max(S.level || 1, a.level);
 S.exp = a.exp || 0;
@@ -4272,7 +4067,6 @@ function gainItem(id, n) {
 S.bag = S.bag || {};
 S.bag[id] = (S.bag[id] || 0) + (n || 1);
 }
-
 function equipList() {
 if (!S.equipped || !S.equipped.length) {
 S.equipped = ["kick", "basic"].concat(DATA.schools[S.school].abilities).slice(0, MAX_EQUIP);
@@ -4292,7 +4086,6 @@ if (S && S.dev) return true;
 return !a.unlock || S.level >= a.unlock;
 }
 function knownAbilities() { return abilityOrder().filter(isUnlocked); }
-function devVisible() { return devOn(); }
 function equipAbility(id) {
 if (!DATA.abilities[id]) return "没有这个技能。";
 if (!isUnlocked(id)) return "尚未解锁：需要 Lv." + DATA.abilities[id].unlock + "。";
@@ -4307,38 +4100,35 @@ S.equipped = S.equipped.filter((x) => x !== id); saveGame(true); return null;
 function checkUnlocks(level) {
 return abilityOrder().filter((id) => { const a = DATA.abilities[id]; return a && a.unlock && a.unlock === level; });
 }
-
-
-function normalizeSquad() {
+function normalizeSquad(list, capArg) {
 if (!S) return { changed: false, removed: 0, trimmed: 0, cap: 2 };
-const cap = squadCap();
-const before = (S.squad || []).slice();
+const cap = capArg || squadCap();
+const explicit = Array.isArray(list);
+const before = (explicit ? list : (S.squad || [])).slice();
 const idx = allyIndex();
 let clean = before.filter((id) => idx[id]);
 const removed = before.length - clean.length;
 let trimmed = 0;
 if (clean.length > cap) { trimmed = clean.length - cap; clean = clean.slice(0, cap); }
-S.squad = clean;
-return { changed: (removed + trimmed) > 0, removed: removed, trimmed: trimmed, cap: cap };
+if (!explicit) S.squad = clean;
+return { changed: (removed + trimmed) > 0, removed: removed, trimmed: trimmed, cap: cap, list: clean };
 }
-
-function squadLegality() {
+function squadLegality(list, capArg) {
 if (!S) return "没有存档。";
-normalizeSquad();
-const cap = squadCap();
-if (!(S.squad || []).length) return "编队是空的。先到「编队」安排上场的人。";
-if (S.squad.length > cap) return "编队超编（" + S.squad.length + " / " + cap + "）。";
+const nr = normalizeSquad(list, capArg);
+const cap = capArg || squadCap();
+const chk = Array.isArray(list) ? nr.list : (S.squad || []);
+if (!chk.length) return "编队是空的。先到「编队」安排上场的人。";
+if (chk.length > cap) return "编队超编（" + S.squad.length + " / " + cap + "）。";
 const aidx = allyIndex();
 if ((S.squad || []).some((id) => !aidx[id])) return "编队里有已经不存在的成员。";
 return null;
 }
 function squadCap() {
 
-if (S && S.spActive) return SP_SQUAD_CAP;
 const done = Object.values(S.chapters || {}).filter((c) => c.done).length;
 return clamp(2 + Math.floor(done / 3), 2, 4);
 }
-
 function weaponJob(wid) {
 const w = DATA.weapons.find((x) => x.id === wid);
 if (!w) return null;
@@ -4351,11 +4141,6 @@ const j = weaponJob(a.weaponId);
 return j || "warrior";
 }
 function jobInfo(j) { return DATA.jobs[j] || DATA.jobs.warrior; }
-
-function usableWeaponsFor(a) {
-const j = jobOfAlly(a);
-return DATA.weapons.filter((w) => weaponUsableBy(w.id, j));
-}
 function makeAlly(name, tier, opts) {
 opts = opts || {};
 let base = { common: 24, advance: 34, elite: 46, relic: 62, eternal: 86 }[tier] || 24;
@@ -4377,9 +4162,7 @@ note: opts.note || "",
 hp: null, sp: 20
 };
 ally.base = ally.base + Math.floor(Math.random() * 5) * (tier === "eternal" ? 4 : 2);
-
 if (!ally.job) ally.job = opts.job || weaponJob(ally.weaponId) || randomJob();
-
 if (!weaponUsableBy(ally.weaponId, ally.job)) {
 ally.weaponId = (DATA.jobDefaultWeapon && DATA.jobDefaultWeapon[ally.job]) || ally.weaponId;
 }
@@ -4407,12 +4190,6 @@ makeAlly("罗砚", "common", { base: 26, weaponId: "sword_std", note: "分部派
 makeAlly("苏未眠", "advance", { base: 34, weaponId: "bow_std", note: "搜救团出身，跑得比谁都快。" })
 ];
 }
-function allyPower(a) {
-const w = wpOf(a.weaponId);
-const lv = a.level || 1;
-return Math.round(a.base + lv * 7 + (w.atkBonus || 0) * 4);
-}
-
 const _statsCache = new Map();
 function _statsKey(a) {
 return (a.id || "?") + "|" + (a.level || 1) + "|" + (a.weaponId || "") + "|" +
@@ -4441,8 +4218,6 @@ spd: Math.round((6 + Math.floor(lv * 0.4) + (a.speedBonus || 0)) * R.spd),
 coins: Math.min(8, 4 + (w.coinCount || 0) + (a.coins || 0))
 };
 }
-
-
 let _wpIndex = null;
 function wpById(id) {
 if (!_wpIndex) {
@@ -4452,9 +4227,7 @@ _wpIndex = {};
 return _wpIndex[id] || null;
 }
 function wpOf(id) { return wpById(id) || (DATA.weapons && DATA.weapons[0]) || null; }
-
 let _allyIndex = null, _allyVersion = 0, _allyBuiltAt = -1;
-
 function invalidateAllyIndex() { _allyVersion++; }
 function allyIndex() {
 if (_allyIndex && _allyBuiltAt === _allyVersion) return _allyIndex;
@@ -4463,24 +4236,10 @@ _allyIndex = {};
 _allyBuiltAt = _allyVersion;
 return _allyIndex;
 }
-
 let _rafPending = false;
-function renderBattleSoon() {
-if (_rafPending) return;
-_rafPending = true;
-const run = function () { _rafPending = false; try { renderBattle(); } catch (e) {} };
-try {
-if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
-else setTimeout(run, 0);
-} catch (e) { run(); }
-}
-
 let _heroPoolCache = null, _heroPoolSig = "";
-function invalidateHeroPool() { _heroPoolCache = null; _heroPoolSig = ""; }
-
 const HERO_ID = "hero_self";
 const MAX_LEVEL = 200; 
-
 const SCHOOL_CN2ID = { "剑":"sword", "弓":"bow", "刃":"blade", "枪":"spear", "斧":"axe",
 "拳":"fist", "腿":"leg", "法":"arcane", "械":"tech", "医":"medic", "通用":"common" };
 function schoolIdOf(w) {
@@ -4489,11 +4248,9 @@ const cn = String(w.school || "");
 for (const k in SCHOOL_CN2ID) if (cn.indexOf(k) >= 0) return SCHOOL_CN2ID[k];
 return null;
 }
-
 const TYPE_CN2ROLE = { "拳":"battle", "腿":"battle", "剑":"battle", "刃":"battle",
 "枪":"battle", "斧":"battle", "弓":"support", "法":"support",
 "械":"support", "医":"defense", "盾":"defense" };
-
 const HERO_TIER_STEPS = [
 { at: 1, rarity: "common" },
 { at: 15, rarity: "advance" },
@@ -4502,7 +4259,6 @@ const HERO_TIER_STEPS = [
 { at: 120, rarity: "eternal" },
 { at: 160, rarity: "quasi" }
 ];
-
 const ROLE_NAMES = { battle: "战斗型", support: "辅助型", defense: "防御型" };
 function roleOfAlly(a) {
 if (!a) return "battle";
@@ -4515,7 +4271,6 @@ if (j === "healer" || j === "mage") return "support";
 if (j === "mechanic") return "defense";
 return "battle";
 }
-
 const ROLE_MOD = {
 battle: { atk: 1.06, hp: 1.00, def: 1.00, spd: 1.00 },
 support: { atk: 0.94, hp: 1.00, def: 1.00, spd: 1.08 },
@@ -4526,14 +4281,6 @@ let r = "common";
 HERO_TIER_STEPS.forEach((s) => { if ((level || 1) >= s.at) r = s.rarity; });
 return r;
 }
-function heroWeaponId() {
-try {
-const sch = (DATA.schools || {})[S && S.school];
-if (sch && sch.weapons && sch.weapons.length) return sch.weapons[0];
-} catch (e) {}
-return "sword_std";
-}
-
 function heroSchools() {
 if (!S) return [];
 if (!S.heroSchools || !S.heroSchools.length) {
@@ -4542,7 +4289,6 @@ S.heroSchools = [S.school || "sword"];
 return S.heroSchools.filter((x) => DATA.schools[x]).slice(0, 2);
 }
 function heroCanAddSchool() { return (S && S.level >= 15) && heroSchools().length < 2; }
-
 function heroWeaponPool() {
 const ids = heroSchools();
 const sig = ids.join(",");
@@ -4577,7 +4323,6 @@ note: "专属角色 · 等级跟随本人 · 体系 " + schools.map((k) => DATA.
 hp: null, sp: 24, isHero: true
 };
 }
-
 function heroSetWeapon(id) {
 if (!S) return false;
 const w = DATA.weapons.find((x) => x.id === id);
@@ -4606,7 +4351,6 @@ saveGame(true);
 toast("已开新体系：" + DATA.schools[sid].name);
 return true;
 }
-
 function syncHero(addToSquad) {
 if (!S) return null;
 S.allies = S.allies || [];
@@ -4632,20 +4376,15 @@ if (S.squad.indexOf(HERO_ID) < 0) S.squad.unshift(HERO_ID);
 }
 return a;
 }
-function squadAllies() {
-
-const all = (S.squad || []).map((id) => allyById(id)).filter(Boolean);
-
-S.squad = all.map((a) => a.id);
+function squadAllies(list) {
+const src = Array.isArray(list) ? list : (S.squad || []);
+const all = src.map((id) => allyById(id)).filter(Boolean);
+if (!Array.isArray(list)) S.squad = all.map((a) => a.id);
 return all;
 }
-function squadUnits() {
-return squadAllies().map((a) => playerUnitFor(a));
+function squadUnits(list) {
+return squadAllies(list).map((a) => playerUnitFor(a));
 }
-function effectiveCoins(a) {
-return Math.min(8, (a.ally && a.ally.coins) || a.coins || 4);
-}
-
 function openSquad() {
 if (!S) return;
 const cap = squadCap();
@@ -4682,7 +4421,6 @@ html += "<div class='codex-card' data-field='" + a.id + "'>" +
 });
 });
 html += "</div>";
-
 const bs = baseStats(S);
 html += "<h4>档案本人</h4><p>" + S.name + " ｜ " + currentRank() + " ｜ Lv." + S.level +
 " ｜ 生命 " + bs.hp + " ｜ 攻击等级 " + (12 + S.level * 2) + " ｜ 功勋 " + (S.honor || 0) + "</p>";
@@ -4704,8 +4442,6 @@ saveGame(true); renderHud(); openSquad();
 };
 });
 }
-
-
 function dissolveValue(a) {
 if (!a) return 0;
 if (a.id === HERO_ID) return 0; 
@@ -4793,7 +4529,6 @@ openDissolve();
 };
 });
 }
-
 function rollRarity() {
 const r = DATA.recruit.rates;
 const x = Math.random();
@@ -4814,7 +4549,6 @@ return nm;
 })();
 const isEternal = DATA.recruit.eternalPool.indexOf(name) >= 0;
 if (isEternal) return eternalAlly(name);
-
 const jr = randomJob();
 const wpool = DATA.weaponJobs ? jobWeapons(jr) : [];
 const wPick = wpool.length ? wpool[Math.floor(Math.random() * wpool.length)] : null;
@@ -4845,7 +4579,6 @@ continue;
 got.push(rollAlly(force));
 }
 got.forEach((a) => {
-
 if (a.tier === "eternal" && (S.allies || []).some((x) => x.id === a.id)) {
 S.honor += 400;
 a.dupe = true;
@@ -4859,7 +4592,6 @@ S.allied[a.summonId] = true;
 if (!S.summonId) S.summonId = a.summonId;
 }
 });
-
 S.squad = S.squad || [];
 got.forEach((a) => {
 if (!a.dupe && S.squad.length < squadCap()) S.squad.push(a.id);
@@ -4905,7 +4637,6 @@ $$("#modalBody [data-roll]").forEach((c) => {
 c.onclick = () => doRecruit(parseInt(c.getAttribute("data-roll"), 10));
 });
 }
-
 function openArmory() {
 if (!S) return;
 S.allyWeapon = S.allyWeapon || {};
@@ -4959,7 +4690,6 @@ const id = c.getAttribute("data-weapon");
 const w = DATA.weapons.find((x) => x.id === id);
 if (!w) return;
 if (!target) { toast("没有可装备的成员。"); return; }
-
 if (!weaponUsableBy(id, jobOfAlly(target))) {
 const ji = jobInfo(jobOfAlly(target));
 const need = weaponJobsOf(id).map((x) => (DATA.jobs[x] || {}).name).join(" / ");
@@ -4985,7 +4715,6 @@ saveGame(true); renderHud(); openArmory();
 function canBuyWeapon(w) {
 return w.rarity === "eternal" ? 6000 : w.rarity === "relic" ? 2400 : w.rarity === "elite" ? 1100 : 500;
 }
-
 function openBag() {
 if (!S) return;
 S.bag = S.bag || {};
@@ -5030,11 +4759,9 @@ toast("补给已入库。");
 saveGame(true); renderHud(); openBag();
 };
 });
-
 $$("#modalBody [data-usejar]").forEach((c) => {
 c.onclick = () => giveExpJar(c.getAttribute("data-usejar"));
 });
-
 const JAR_COST = { jar_low: 400, jar_mid: 1000, jar_high: 2200, jar_t1: 6000 };
 $$("#modalBody [data-buyjar]").forEach((c) => {
 c.onclick = () => {
@@ -5048,8 +4775,6 @@ saveGame(true); renderHud(); openBag();
 };
 });
 }
-
-
 function openParty() {
 if (!S) return;
 const bs = baseStats(S);
@@ -5107,7 +4832,6 @@ saveGame(true); renderHud(); openParty();
 function box(name, val) {
 return "<div class='stat-box'><div class='s-name'>" + name + "</div><div class='s-val'>" + val + "</div></div>";
 }
-
 function abilityCard(id, mode) {
 const a = DATA.abilities[id];
 const known = isUnlocked(id);
@@ -5127,7 +4851,6 @@ equipList();
 const pool = knownAbilities();
 let html = "<p style='color:var(--muted)'>技能栏 <b style='color:var(--gold2)'>" + S.equipped.length + " / " + MAX_EQUIP +
 "</b>。点左边的技能换上，点右边已装备的技能卸下。战斗中只能用技能栏里的技能。</p>";
-
 (function () {
 const hs = heroSchools();
 const pool = heroWeaponPool();
@@ -5209,7 +4932,6 @@ renderHud();
 };
 });
 }
-
 function devGiveMat(id, n) { gainMat(id, n || 1); saveGame(true); return S.mats; }
 function devSetMat(obj) { S.mats = Object.assign({}, S.mats || {}, obj || {}); saveGame(true); return S.mats; }
 function devQuestForce(id, state) {
@@ -5226,7 +4948,6 @@ giveMat: devGiveMat,
 setMat: devSetMat,
 forceQuest: devQuestForce,
 quests: function () { return S.quests; },
-
 unlockAll: function () {
 DATA.chapters.forEach((c, i) => { chapterState(i).done = true; });
 S.unlocked = DATA.chapters.length;
@@ -5255,7 +4976,6 @@ saveGame(true);
 return S.difficulty;
 },
 clearGame: function () { onGameCleared(); return { difficulty: diffId(), hard: S.hardUnlocked, true: S.trueUnlocked }; },
-
 slots: function () { return slotList(); },
 activeSlot: function () { return activeSlot(); },
 saveTo: function (k, silent) { return saveToSlot(k, silent === undefined ? true : silent); },
@@ -5265,7 +4985,6 @@ newest: function () { return newestSlot(); },
 openSettings: function () { openSettings(); },
 openSlots: function () { openSaveSlots(); },
 openNotes: function () { openSaveNotes(); },
-
 jobs: function () { return DATA.jobs; },
 jobOf: function (allyId) { const a = allyById(allyId); return a ? jobOfAlly(a) : null; },
 allyJobs: function () {
@@ -5282,7 +5001,6 @@ resetCommissions: function () { S.commissionDay = null; S.commissionBase = null;
 commissions: function () { ensureCommissions(); return { day: S.commissionDay, list: S.commissions, claimed: S.commissionClaimed, base: S.commissionBase }; },
 setCommissionBase: function (obj) { S.commissionBase = Object.assign(commissionBaseline(), obj || {}); saveGame(true); return S.commissionBase; },
 openCommissions: function () { openCommissions(); },
-
 strict: function () { return strictNoSkip(); },
 difficulty: function () { return diffId(); },
 leaveToGrind: function () { leaveToGrind(); },
@@ -5290,12 +5008,10 @@ afterBattle: function () { afterBattle(); return { stage: S.stage, screen: UI.sc
 stageWin: function () { return B ? !!B.stageWin : null; },
 winBattle: function () { if (!B) return null; winBattle(); return !!B; },
 loseBattle: function () { loseBattle(); return true; },
-
 settle: function (win) {
 if (!B) return "no-battle";
 B.over = true; B.locked = true; B.stageWin = !!win;
 if (win) {
-
 S.questCounters = S.questCounters || { battles:0, kills:0, killsByTag:{}, bossWins:0, arenaWins:0, fullHp:0 };
 S.questCounters.battles = (S.questCounters.battles || 0) + 1;
 if (B.arena) {
@@ -5310,7 +5026,6 @@ S.arenaCleared[tk] = (S.arenaCleared[tk] || 0) + 1;
 showResult(!!win);
 return { win: !!win, strict: strictNoSkip(), diff: diffId(), arena: B.arena ? { tier: B.arenaTier, diff: B.arenaDiff } : null };
 },
-
 arenaDiffs: function () { return ARENA_DIFFS.map(function (d) { return d.id + ":" + d.name; }); },
 arenaDiff: function () { return (S && S.arenaDiff) || "normal"; },
 setArenaDiff: function (id) { S.arenaDiff = id; saveGame(true); return S.arenaDiff; },
@@ -5327,11 +5042,9 @@ count: B.enemies.length
 };
 },
 forceArenaEnemy: function (k) { forceArenaEnemy(k); return k; },
-
 addEnemy: function (key) {
 if (!B) return null;
 const k = key || "cultist";
-
 let idx = B.enemies.length;
 while (B.enemies.some(function (e) { return e.uid === "enemy_" + idx; })) idx++;
 const u = enemyUnitFor(k, idx, (B.stage && B.stage.enemyScale) || 1,
@@ -5341,10 +5054,8 @@ B.enemyDefs[u.uid] = { enemy: k };
 renderBattle();
 return u.uid;
 },
-
 assignTarget: function (uid) { assignTarget(uid); return (B.units[B.sel] || {}).actionTarget; },
 selIndex: function () { return B ? B.sel : -1; },
-
 duel: function () {
 if (!D_) return null;
 return {
@@ -5360,7 +5071,6 @@ duelNew: function () { newDuelMatch(); return true; },
 duelOddsOf: function (i, j) { const R = DATA.duelRoster; return duelOdds(R[i], R[j]); },
 duelRosterSize: function () { return (DATA.duelRoster || []).length; },
 duelLogText: function () { return (D_ && D_.log ? D_.log : []).map(function (l) { return l.text; }).join("\n"); },
-
 spList: function () {
 return DATA.specialBosses.map(function (b) {
 return { id: b.id, name: b.name, enemy: b.enemy, reward: b.reward.name,
@@ -5370,6 +5080,7 @@ unlock: spUnlocked(b), has: spHasReward(b) };
 spState: function () {
 return { chosen: spDone(), active: !!(S && S.spActive), cap: squadCap(),
 draft: (S && S.spDraft ? S.spDraft.slice() : null),
+spSquad: (S && S.spSquad ? S.spSquad.slice() : null),
 squad: (S && S.squad ? S.squad.slice() : []),
 prevSquad: (S && S.spPrevSquad ? S.spPrevSquad.slice() : null) };
 },
@@ -5381,17 +5092,15 @@ S.squad = S.squad || [];
 if (S.squad.indexOf(id) < 0) S.squad.push(id);
 saveGame(true); return S.squad.slice();
 },
-spSetSquad: function (ids) { S.squad = (ids || []).slice(); S.spActive = true; saveGame(true); return S.squad.slice(); },
+spSetSquad: function (ids) { S.spSquad = (ids || []).slice(0, SP_SQUAD_CAP); saveGame(true); return S.spSquad.length; },
 spGrant: function (id) { grantSpReward(id); return { has: spHasReward(DATA.specialBosses.find(function (b) { return b.id === id; })) }; },
-spSquadCap: function () { return squadCap(); },
+spSquadCap: function () { return (B && B.stage && B.stage.squadOverride && typeof UI !== "undefined" && UI.screen === "battle") ? SP_SQUAD_CAP : squadCap(); },
 spDoneProbe: function () { return spDone(); },
 openSettings: function () { openSettings(); },
 openSlots: function () { openSaveSlots(); },
 openDifficulty: function () { openDifficulty(); },
 toTitle: function () { toTitle(); return UI.screen; },
 switchDiff: function (id) { switchDifficulty(id); return S ? S.difficulty : null; },
-
-
 allyStats: function (a) { return allyStats(a); },
 squadCap: function () { return squadCap(); },
 allyById: function (id) { return allyById(id); },
@@ -5500,10 +5209,8 @@ if (!B) return null;
 return { round: B.round, phase: B.phase, locked: B.locked, over: B.over,
 enemyAlive: B.enemies.filter(function (e) { return e.alive; }).length };
 },
-
 setBal: function (o) { Object.assign(BAL, o || {}); return JSON.parse(JSON.stringify(BAL)); },
 getBal: function () { return JSON.parse(JSON.stringify(BAL)); },
-
 measure: function () {
 if (!B) return null;
 const C = window.HengCombo;
@@ -5521,14 +5228,12 @@ allyPool: (ally.moves || []).slice(0, 4), foePool: (foe.moves || []).slice(0, 4)
 foeDmgMul: foe.dmgMul || 1
 };
 },
-
 metrics: function () {
 if (!B) return null;
 const C = window.HengCombo;
 const allies = B.units.filter(function (u) { return u.alive && u.isPlayer; });
 const foes = B.enemies.filter(function (e) { return e.alive; });
 if (!allies.length || !foes.length) return null;
-
 let out = 0, ehits = 0;
 allies.forEach(function (a) {
 const ms = a.moves && a.moves.length ? a.moves : ["m_jab"];
@@ -5583,7 +5288,6 @@ writeJSON(SLOTS_META, meta);
 setActiveSlot(String(Object.keys(data)[0]));
 return slotList().filter((x) => x.has).map((x) => x.key);
 },
-
 addEver: function (everId, toSquad) {
 const ev = DATA.ever.find((x) => x.id === everId);
 if (!ev) return "unknown";
@@ -5601,7 +5305,6 @@ S.allied = S.allied || {}; S.allied[ev.id] = true;
 saveGame(true);
 return { ally: aid, squad: S.squad.slice() };
 },
-
 play: function (chapterIndex, stage) {
 if (chapterIndex !== undefined) S.chapterIndex = chapterIndex;
 if (stage !== undefined) S.stage = stage;
@@ -5618,8 +5321,6 @@ saveGame(true);
 return S.questCounters;
 }
 };
-
-
 function inNonStoryBattle() {
 if (!B) return false;
 return !!(B.arena || B.spBoss || (B.stage && (B.stage.arena || B.stage.spBoss || B.stage.duel)));
@@ -5628,17 +5329,11 @@ function diffId() {
 if (inNonStoryBattle()) return "normal";
 return (S && S.difficulty) || "normal";
 }
-
 function diffIdRaw() { return (S && S.difficulty) || "normal"; }
 function diffConf() {
 return (DATA.difficulties && DATA.difficulties[diffId()]) || DATA.difficulties.normal;
 }
 function isNormalDiff() { return diffId() === "normal"; }
-function diffLabel() {
-const d = diffConf();
-return d.short + (d.id === "normal" ? "" : " ｜ " + d.name);
-}
-
 function onGameCleared() {
 const d = diffId();
 S.gameCleared = true;
@@ -5679,32 +5374,24 @@ $$("#modalBody [data-setdiff]").forEach((b) => {
 b.onclick = () => switchDifficulty(b.getAttribute("data-setdiff"));
 });
 }
-
-
 function assistsForStage(stage) {
 if (!stage || stage.arena) return [];
 const ch = DATA.chapters[S.chapterIndex];
 const key = ch ? ch.key : "";
 const title = stage.title || "";
-
 if (stage.boss) return [];
 const roster = DATA.assistRoster || [];
-
-
 const exact = roster.filter((a) =>
 a.chapter === key && (a.stages || []).length &&
 (a.stages || []).some((t) => t && title.indexOf(t) >= 0));
 if (exact.length) return exact.slice(0, 1);
-
 return (DATA.assists || []).filter((a) =>
 a.chapter === key && (a.stages || []).length &&
 (a.stages || []).some((t) => t && title.indexOf(t) >= 0)).slice(0, 1);
 }
-
 function makeAssistUnit(a, idx) {
 const lv = a.lv || 30;
 const w = DATA.weapons.find((x) => x.id === a.weapon) || null;
-
 const label = a.label || "";
 const displayName = a.name + String(label || "").replace(/^·\s*/, "·");
 const u = makeUnit({
@@ -5724,7 +5411,6 @@ u.moves = a.moves || ["m_jab", "m_hook", "m_guard"];
 u.chain = [];
 return u;
 }
-
 function injectAssists(stage) {
 const list = assistsForStage(stage);
 if (!list.length) return [];
@@ -5733,7 +5419,6 @@ list.forEach((a, i) => {
 const u = makeAssistUnit(a, i);
 B.units.push(u);
 B.assists.push(u);
-
 B.units.forEach((x) => {
 if (x === u || !x.isPlayer || !x.ally) return;
 const everId = x.ally.ever || (x.ally.id && x.ally.id.indexOf("ever_") === 0 ? x.ally.id.slice(5) : null);
@@ -5765,8 +5450,6 @@ const a = (DATA.assists || []).find((x) => x.id === u.assistId) || {};
 logLine("l-boss", "【援助退场】" + (a.leave || u.name + "离开了战场。"));
 });
 }
-
-
 function enemyTags(key) {
 const e = DATA.enemies[key] || {};
 const n = e.name || "";
@@ -5801,7 +5484,6 @@ const m = S.mats || {};
 Object.keys(m).forEach((k) => { t += m[k] || 0; });
 return t;
 }
-
 function rollDrops(enemies) {
 const got = {};
 (enemies || []).forEach((en) => {
@@ -5814,14 +5496,11 @@ gainMat(mid, n);
 got[mid] = (got[mid] || 0) + n;
 }
 });
-
 const jarRoll = Math.random();
 if (jarRoll < 0.06) gainItem("jar_high", 1);
 else if (jarRoll < 0.20) gainItem("jar_mid", 1);
 else if (jarRoll < 0.45) gainItem("jar_low", 1);
-
 try {
-
 const chIdx = (S && typeof S.chapterIndex === "number") ? S.chapterIndex : -1;
 const inTrue = (diffIdRaw() === "true") && (chIdx === 2 || chIdx === 3 || chIdx === 4);
 if (inTrue && Math.random() < 0.22) {
@@ -5835,7 +5514,6 @@ logLine("l-sys", "素材：" + ks.map((k) => DATA.materials[k].icon + " " + DATA
 }
 return got;
 }
-
 function questProgress(q) {
 const o = q.obj || {};
 const c = S.questCounters || {};
@@ -5857,7 +5535,6 @@ default: return { have: 0, need: 1 };
 }
 }
 function eternalRoster() {
-
 return Object.keys(S.chapters || {}).filter((k) => S.chapters[k] && S.chapters[k].done)
 .map((k) => DATA.chapters[Number(k)])
 .filter((c) => c && c.ever)
@@ -5872,7 +5549,6 @@ function questReady(q) {
 const p = questProgress(q);
 return p.have >= p.need;
 }
-
 function refreshQuests(announce) {
 S.quests = S.quests || {};
 let turned = 0;
@@ -5901,7 +5577,6 @@ if (!q) return;
 const st = S.quests[id];
 if (!st || st.state !== "done") { toast("条件还没满足。"); return; }
 if (q.obj.kind === "material" && matCount(q.obj.mat) < q.obj.count) { toast("素材不够。"); return; }
-
 if (q.obj.kind === "material") S.mats[q.obj.mat] -= q.obj.count;
 st.state = "claimed";
 const lines = [];
@@ -5922,7 +5597,6 @@ openModal("支线交付 · " + q.name,
 refreshQuests(false);
 renderMap();
 }
-
 function openQuests(focusId) {
 if (!S) {
 toast("先建一份档案，再来接委托。");
@@ -5943,7 +5617,6 @@ const st = questState(q.id);
 if (st === "claimed") { done.push(q); return; }
 if (st === "done") { ready.push(q); return; }
 if (st === "active") { active.push(q); return; }
-
 if (chapterState(q.chapter).done || q.chapter <= highestUnlockedChapter()) offer.push(q);
 });
 const bar = (q) => {
@@ -6037,7 +5710,6 @@ saveGame(true);
 toast("兑换完成：" + sp.name);
 openQuests();
 }
-
 function chaptersCleared() {
 return Object.keys(S.chapters || {}).filter(function (k) { return S.chapters[k] && S.chapters[k].done; }).length;
 }
@@ -6107,16 +5779,12 @@ B.boss = true;
 B.bossId = id;
 B.noItem = true;
 B.noHeal = true;
-
 var rawHp = (DATA.enemies[id] && DATA.enemies[id].hp) || 3000;
-
 var bossHp = Math.round(180 + rawHp * 0.62 + S.level * 26);
 (B.enemies || []).forEach(function (en) {
 en.maxHp = bossHp;
 en.hp = bossHp;
-if (en.bossSkillCoin) {  }
-
-
+if (en.bossSkillCoin) { }
 en.atkLevel = Math.max(3, Math.round(en.atkLevel * 0.58));
 en.defLevel = Math.max(6, Math.round(en.defLevel * 0.92));
 en.dmgMul = 0.85;
@@ -6127,8 +5795,6 @@ renderBattle();
 logLine("l-boss", "【会台】" + e.name + " 走上台。这一场不许用道具——但医疗部照常值守。");
 }
 }
-
-
 const ARENA_DIFFS = [
 { id:"normal", name:"通常", short:"通常", hp:1.00, atk:1.00, exp:1.00, honor:1.00, cls:"d-normal" },
 { id:"hard", name:"困难", short:"困难", hp:1.55, atk:1.22, exp:1.45, honor:1.60, cls:"d-hard" },
@@ -6141,7 +5807,6 @@ function arenaDiffIndex(id) {
 const i = ARENA_DIFFS.findIndex((d) => d.id === id);
 return i < 0 ? 0 : i;
 }
-
 function arenaDiffUnlocked(tierIndex, diffId2) {
 const di = arenaDiffIndex(diffId2);
 if (di === 0) return true;
@@ -6156,7 +5821,6 @@ function arenaClearCount(tierIndex, diffId2) {
 const m = (S && S.arenaCleared) || {};
 return m[arenaClearKey(tierIndex, diffId2)] || 0;
 }
-
 let _arenaDiffHold = null;
 function enterArenaScope(id) {
 _arenaDiffHold = (S && S.difficulty) || "normal";
@@ -6254,7 +5918,6 @@ title: tier.name, award: { exp: 0 },
 intro: tier.desc,
 win: "对手倒下了。无垠厅的记账员在上面写下一行数字。"
 };
-
 stage.enemyScale = tier.statScale || 1;
 stage.enemyHp = ad.hp;
 stage.enemyAtk = ad.atk;
@@ -6334,7 +5997,6 @@ box("降神", e.summon.name) + box("自损", Math.round(e.summon.selfCost * 100)
 "<div style='margin-top:16px'><button class='btn btn-tiny' data-act='back-ever'>返回典藏室</button></div>");
 bindBack();
 }
-
 function openCredits() {
 const html =
 "<div style='text-align:center'>" +
@@ -6367,19 +6029,16 @@ openModal("关于 [恒]组织",
 "<h4>无垠厅 · 刷怪区</h4><p>主线之外的历练场，共五层，等级越高能进越深的层。每连胜一场经验加成 +12%。" +
 "刷怪给功勋，功勋可以在战斗中用「医疗部」回血（250功勋回35%生命）。</p>");
 }
-
 function toTitle() {
 try { closeModal(); } catch (e) {}
 show("title");
 rotateQuotes();
 el("titleQuote").textContent = QUOTES[0];
 }
-
 function isApp() {
 try { return !!(window.HengApp && window.HengApp.isApp && window.HengApp.isApp()); }
 catch (e) { return false; }
 }
-
 const DEV_NAME = "玖喵思源";
 function devOn() { return !!(S && S.dev); }
 function devUnlockAll() {
@@ -6410,7 +6069,6 @@ S.weaponOf = S.weaponOf || {};
 (S.allies || []).forEach((a, i) => {
 if (!S.weaponOf[a.id]) a.weaponId = S.weapons[i % S.weapons.length] || a.weaponId;
 });
-
 (S.allies || []).forEach((a) => {
 a.level = 50;
 a.hpBonus = (a.hpBonus || 0) + 6000;
@@ -6493,7 +6151,6 @@ try { syncHero(); } catch (e) {}
 UI.selectedChapter = 0;
 normalizeAllyJobs();
 equipList();
-
 const empty = slotList().find((x) => !x.has);
 setActiveSlot(empty ? empty.key : "1");
 saveGame(true);
@@ -6521,9 +6178,7 @@ function boot() {
 advanceHint = el("advanceHint");
 try { migrateLegacySave(); } catch (e) {}
 try { if (S) ensureCommissions(); } catch (e) {}
-
 try { if (window.HengFx && window.HengFx.buildAudioDock) window.HengFx.buildAudioDock(); } catch (e) {}
-
 if (document.addEventListener) {
 document.addEventListener("click", function (ev) {
 if (!advanceHint) return;
@@ -6576,9 +6231,9 @@ else if (act === "settings") openSettings();
 else if (act === "mymusic") openMyMusic();
 else if (act === "commissions") openCommissions();
 else if (act === "duel") openDuel();
+else if (act === "activities") openActivities();
 else if (act === "spboss") openSpecialBosses();
 else if (act === "lang-en") {
-
 location.href = "index.en.html";
 }
 else if (act === "slots") openSaveSlots();
@@ -6590,13 +6245,11 @@ el("modal").addEventListener("click", (ev) => { if (ev.target === el("modal")) c
 document.addEventListener("keydown", (ev) => {
 if (ev.key === "Escape" && el("modal").classList.contains("on")) closeModal();
 });
-
 toTitle();
 try { relocalize(); } catch (e) {}
-
 if (window.HengFx && window.HengFx.maybeFirstRun) {
 setTimeout(function () {
-if (!hasSave()) {  }
+if (!hasSave()) { }
 }, 100);
 }
 }
