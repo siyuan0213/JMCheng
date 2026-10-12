@@ -2856,8 +2856,10 @@ power: 9999,
 pool: ["e_domain","e_erase","e_final","e_voidcut","e_law","e_starfall","e_overload2"],
 reward: {
 id: "sp_siyuan_godking",
+bwShine: true, 
 name: "思源 · 邪神王模式",
-glyph: "邪", color: "#b06cff", power: "∞",
+glyph: "邪", 
+power: "∞",
 rarity: "super",
 
 base: 420, atkBonus: 200, hpBonus: 40000, speedBonus: 18, defBonus: 30,
@@ -2882,8 +2884,10 @@ power: 9999,
 pool: ["e_law","e_domain","e_final","e_starfall","e_beam","e_bonewall","e_drain2"],
 reward: {
 id: "sp_xleader_creator",
+bwShine: true, 
 name: "[X]首领 · 创世神模式",
-glyph: "创", color: "#63d69a", power: "∞",
+glyph: "创", 
+power: "∞",
 base: 150, atkBonus: 30, hpBonus: 3000,
 job: "gunner", weaponId: "gun_cannon",
 note: "全功率创世神模式 · 特殊"

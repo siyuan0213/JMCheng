@@ -881,7 +881,7 @@ const on = draft.indexOf(a.id) >= 0;
 const st = allyStats(a);
 const ji = jobInfo(jobOfAlly(a));
 html += "<div class='codex-card" + (on ? " hot" : "") + "' data-sppick='" + a.id + "'>" +
-"<div class='cc-name' style='color:" + (a.color || "#fff") + "'>" + a.name + (on ? " ◆" : "") + "</div>" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" + a.name + (on ? " ◆" : "") + "</div>" +
 "<div class='cc-sub'>" + ji.glyph + " " + ji.name + " ｜ Lv." + (a.level || 1) + "</div>" +
 "<div class=\'cc-sub\'>HP " + st.hp + " ｜ Strength " + st.atk + " ｜ Speed " + st.spd + "</div>" +
 "</div>";
@@ -1009,8 +1009,11 @@ S.allies = S.allies || [];
 S.allies.push({
 id: spAllyId(b), name: r.name,
 tier: r.rarity || "relic", rarity: r.rarity || "relic",
-level: Math.max(1, S.level), glyph: r.glyph, color: r.color,
+level: Math.max(1, S.level), glyph: r.glyph,
+
+color: r.color || "#c9ced8",
 base: r.base || 150, atkBonus: r.atkBonus || 0,
+bwShine: !!r.bwShine, 
 hpBonus: r.hpBonus || 0, speedBonus: r.speedBonus || 0, defBonus: r.defBonus || 0,
 coins: r.coins || 0, sp: r.sp || 20,
 weaponId: r.weaponId || "orb_void", job: r.job || "mage",
@@ -1536,6 +1539,38 @@ function activityById(id) {
 const all = ACTIVITIES.perm.concat(ACTIVITIES.dated);
 for (let i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
 return null;
+}
+
+const TITLE_GROUPS = {
+"title-archive": {
+title: "档案",
+note: "你的记录、厅堂与没走完的支线。",
+items: [
+{ act: "slots", label: "存 档" },
+{ act: "arena", label: "无 垠 厅" },
+{ act: "quests", label: "支 线 委 托" },
+{ act: "codex", label: "典 藏 室" }
+]
+},
+"title-about": {
+title: "关于",
+note: "这座组织是什么，以及是谁把它写出来的。",
+items: [
+{ act: "about", label: "关 于 组 织" },
+{ act: "credits", label: "创 作 者 名 单" }
+]
+}
+};
+function openTitleGroup(key) {
+const grp = TITLE_GROUPS[key];
+if (!grp) return;
+let html = "<p style='color:var(--muted)'>" + tr(grp.note) + "</p>";
+html += "<div class='title-panel-grid'>";
+grp.items.forEach(function (it) {
+html += "<button class='btn btn-ghost' data-act='" + it.act + "'>" + tr(it.label) + "</button>";
+});
+html += "</div>";
+openModal(tr(grp.title), html);
 }
 function openActivities() {
 const dated = ACTIVITIES.dated || [];
@@ -3970,97 +4005,6 @@ UI.jarPick = { jar: id, ally: list[0].id };
 openJarPicker();
 return 0;
 }
-function openJarPicker() {
-const P = UI.jarPick;
-if (!P) return;
-const it = DATA.items.find((x) => x.id === P.jar);
-if (!it) return;
-const list = jarTargets();
-if (!list.some((a) => a.id === P.ally)) P.ally = list.length ? list[0].id : null;
-const target = list.find((a) => a.id === P.ally);
-let html = "<p style='color:var(--muted)'>" + tr(it.name) + "：" + tr(it.desc).replace(/\n/g, "<br>") + "</p>";
-html += "<p>当前持有 <b class='k'>×" + ((S.bag || {})[P.jar] || 0) + "</b>。选择要给哪位角色使用：</p>";
-html += "<div class='codex-grid'>";
-const groups = groupByLevel(list);
-groups.forEach((grp) => {
-html += "<div style='flex:1 1 100%;margin:8px 0 2px;color:var(--muted);font-size:12px;letter-spacing:2px'>" +
-grp.band.name + "（" + grp.items.length + "）</div>";
-grp.items.forEach((a) => {
-const st = allyStats(a);
-const on = (a.id === P.ally);
-const role = (ROLE_NAMES[roleOfAlly(a)] || "战斗型");
-html += "<div class='codex-card" + (on ? " hot" : "") + "' data-jarpick='" + a.id + "'" +
-(on ? " style='border-color:var(--gold);background:rgba(214,178,90,.12)'" : "") + ">" +
-"<div class='cc-name' style='color:" + (a.color || "#ddd") + "'>" + a.name + (on ? " ◆" : "") + "</div>" +
-"<div class='cc-sub'>" + role + " ｜ Lv." + a.level + " ｜ " +
-(DATA.recruit.tiers[a.rarity] || DATA.recruit.tiers[a.tier] || {}).name + "</div>" +
-"<div class=\'cc-sub\'>HP " + st.hp + " ｜ Attack Level " + st.atk + "</div>" +
-"<div class='cc-sub' style='color:var(--muted)'>EXP " + Math.floor(a.exp || 0) + " / " +
-(a.level >= MAX_LEVEL ? "满级" : expNeeded(a.level)) + "</div></div>";
-});
-});
-html += "</div>";
-if (target) {
-if (it.kind === "lvup") {
-const n = Math.min(it.val || 1, MAX_LEVEL - target.level);
-html += "<p style='color:var(--gold2)'>给 <b>" + target.name + "</b> 使用 → 等级 " +
-target.level + " → " + (target.level + Math.max(0, n)) +
-(n > 0 ? "（+" + n + "）" : "（已满级）") + "</p>";
-} else {
-const amount = it.val || 0;
-let sim = target.level, rem = (target.exp || 0) + amount, ups = 0;
-while (sim < MAX_LEVEL && rem >= expNeeded(sim)) { rem -= expNeeded(sim); sim++; ups++; }
-html += "<p style='color:var(--gold2)'>给 <b>" + target.name + "</b> 使用 → EXP +" + amount +
-(ups > 0 ? "，等级 " + target.level + " → " + sim + "（+" + ups + "）" : "，不满一级") + "</p>";
-}
-}
-html += "<p><button class='btn btn-primary' data-jarok='1'>确 定 使 用</button> " +
-"<button class='btn btn-tiny' data-jarcancel='1'>取 消</button></p>";
-openModal("使用 " + it.name, html);
-$$("#modalBody [data-jarpick]").forEach((c) => {
-c.onclick = () => { P.ally = c.getAttribute("data-jarpick"); openJarPicker(); };
-});
-$$("#modalBody [data-jarok]").forEach((c) => {
-c.onclick = () => applyJar(P.jar, P.ally);
-});
-$$("#modalBody [data-jarcancel]").forEach((c) => {
-c.onclick = () => { UI.jarPick = null; openBag(); };
-});
-}
-function applyJar(jarId, allyId) {
-const it = DATA.items.find((x) => x.id === jarId);
-const a = (S.allies || []).find((x) => x.id === allyId);
-if (!it || !a) { toast("选择有误。"); return 0; }
-if (!(S.bag || {})[jarId]) { toast("没有这个道具了。"); return 0; }
-if (a.level >= MAX_LEVEL) { toast(a.name + " 已经满级了。"); return 0; }
-S.bag[jarId]--;
-if (S.bag[jarId] <= 0) delete S.bag[jarId];
-const before = a.level;
-let amount, ups;
-if (it.kind === "lvup") {
-amount = 0;
-ups = Math.min(it.val || 1, MAX_LEVEL - a.level);
-a.level += ups;
-if (a.level >= MAX_LEVEL) { a.level = MAX_LEVEL; a.exp = 0; }
-ups = a.level - before;
-if (a.id === HERO_ID) { S.level = a.level; S.exp = a.exp || 0; syncHero(); }
-} else {
-amount = it.val || 0;
-ups = allyGiveExp(a, amount);
-}
-if (a.id === HERO_ID) {
-S.level = Math.max(S.level || 1, a.level);
-S.exp = a.exp || 0;
-syncHero();
-}
-UI.jarPick = null;
-saveGame(true);
-toast(a.name + "：" + it.name + " → " +
-(it.kind === "lvup" ? "等级 " + before + " → " + a.level + "（+" + ups + "）"
-: "EXP +" + amount + (ups > 0 ? "，等级 " + before + " → " + a.level + "（+" + ups + "）" : "")));
-openBag();
-return amount;
-}
 function gainItem(id, n) {
 S.bag = S.bag || {};
 S.bag[id] = (S.bag[id] || 0) + (n || 1);
@@ -4204,15 +4148,39 @@ if (_statsCache.size > 400) _statsCache.clear();
 _statsCache.set(ck, r);
 return r;
 }
+
+const RARITY_POWER = {
+common: 1.00, advance: 1.10, elite: 1.22, relic: 1.36,
+eternal: 1.50, quasi: 1.58, super: 1.68, hero: 1.25
+};
+function rarityPower(a) {
+const t = (a && (a.rarity || a.tier)) || "common";
+return RARITY_POWER[t] || 1.00;
+}
+
+
+function accentColor(a) {
+if (a && a.bwShine) return "#c9ced8";
+return (a && a.color) || "#8b93ab";
+}
+function nameStyle(a) {
+if (a && a.bwShine) {
+return "color:transparent;background:linear-gradient(100deg,#000 0%,#666 12%,#fff 25%,#000 38%,#fff 50%,#000 62%,#fff 75%,#666 88%,#000 100%);" +
+"background-size:400% 100%;-webkit-background-clip:text;background-clip:text;" +
+"font-weight:700;animation:hengBwShine 4s linear infinite;text-shadow:0 0 6px rgba(255,255,255,.35)";
+}
+return "color:" + ((a && a.color) || "#ddd");
+}
 function _allyStatsRaw(a) {
 const w = wpOf(a.weaponId);
 const lv = a.level || 1;
 const R = ROLE_MOD[roleOfAlly(a)] || ROLE_MOD.battle;
+const Q = rarityPower(a); 
 return {
-hp: Math.round((a.base + lv * 46 + (w.atkBonus || 0) * 8 + (a.hpBonus || 0)) * BAL.playerHp * R.hp),
-atk: Math.round((8 + Math.floor(lv * 1.15) + (w.atkBonus || 0) + (a.atkBonus || 0)) * BAL.playerAtk * R.atk),
-def: Math.round((5 + Math.floor(lv * 0.55) + (a.defBonus || 0)) * R.def),
-spd: Math.round((6 + Math.floor(lv * 0.4) + (a.speedBonus || 0)) * R.spd),
+hp: Math.round((a.base + lv * 46 + (w.atkBonus || 0) * 8 + (a.hpBonus || 0)) * BAL.playerHp * R.hp * Q),
+atk: Math.round((8 + Math.floor(lv * 1.15) + (w.atkBonus || 0) + (a.atkBonus || 0)) * BAL.playerAtk * R.atk * Q),
+def: Math.round((5 + Math.floor(lv * 0.55) + (a.defBonus || 0)) * R.def * Q),
+spd: Math.round((6 + Math.floor(lv * 0.4) + (a.speedBonus || 0)) * R.spd * Q),
 coins: Math.min(8, 4 + (w.coinCount || 0) + (a.coins || 0))
 };
 }
@@ -4395,7 +4363,7 @@ if (!a) return;
 const st = allyStats(a);
 const w = wpOf(a.weaponId);
 html += "<div class='codex-card hot' data-unfield='" + id + "'>" +
-"<div class='cc-name' style='color:" + a.color + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
 "<div class='cc-sub'>[" + (ROLE_NAMES[roleOfAlly(a)] || "战斗型") + "] Lv." + a.level + " ｜ HP " + st.hp + " ｜ Attack Level " + st.atk + " ｜ Speed " + st.spd + " ｜ Coins " + st.coins + "</div>" +
 "<div class=\'cc-sub\'>Weapon: " + w.name + "</div>" +
 "<div class=\'cc-sub\' style=\'color:var(--gold2)\'>Tap → Withdraw</div></div>";
@@ -4412,7 +4380,7 @@ grp.items.forEach((a) => {
 const st = allyStats(a);
 const w = wpOf(a.weaponId);
 html += "<div class='codex-card' data-field='" + a.id + "'>" +
-"<div class='cc-name' style='color:" + a.color + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
 "<div class='cc-sub'>Lv." + a.level + " ｜ HP " + st.hp + " ｜ Attack Level " + st.atk + " ｜ Speed " + st.spd + "</div>" +
 "<div class=\'cc-sub\'>Weapon: " + w.name + (a.note ? " ｜ " + a.note : "") + "</div>" +
 "<div class=\'cc-sub\' style=\'color:var(--gold2)\'>Tap → Field</div></div>";
@@ -4455,75 +4423,144 @@ if (a.id === HERO_ID) return false;
 if (a.spBoss) return false;
 return true;
 }
-function openDissolve() {
+
+let disSel = []; 
+const DIS_TIERS = ["common", "advance", "elite", "relic", "eternal", "quasi", "super", "hero"];
+function disTierOf(a) { return a.rarity || a.tier || "common"; }
+function disTierName(t) {
+const d = (DATA.recruit && DATA.recruit.tiers && DATA.recruit.tiers[t]) || {};
+return d.name || t;
+}
+function disSelValue() {
+return disSel.reduce(function (n, id) {
+const a = (S.allies || []).find(function (x) { return x.id === id; });
+return n + (a ? dissolveValue(a) : 0);
+}, 0);
+}
+
+function disDo(ids, label) {
+const list = (S.allies || []).filter(function (a) { return ids.indexOf(a.id) >= 0 && canDissolve(a); });
+if (!list.length) { toast("没有可以溶解的角色。"); return 0; }
+const total = list.reduce(function (n, a) { return n + dissolveValue(a); }, 0);
+const kill = list.map(function (a) { return a.id; });
+S.honor = (S.honor || 0) + total;
+S.allies = (S.allies || []).filter(function (a) { return kill.indexOf(a.id) < 0; });
+invalidateAllyIndex();
+
+S.squad = (S.squad || []).filter(function (x) { return kill.indexOf(x) < 0; });
+if (Array.isArray(S.spSquad)) S.spSquad = S.spSquad.filter(function (x) { return kill.indexOf(x) < 0; });
+if (!S.squad.length && (S.allies || []).length) S.squad = [S.allies[0].id];
+disSel = disSel.filter(function (x) { return kill.indexOf(x) < 0; });
+saveGame(true);
+toast("已溶解 " + list.length + " 名" + (label ? "（" + label + "）" : "") + "，+" + total + " 功勋");
+return total;
+}
+function openDissolve(fresh) {
 if (!S) return;
+if (fresh !== false) disSel = []; 
 S.allies = S.allies || [];
-const list = (S.allies || []).filter((a) => a.id !== HERO_ID);
-let html = "<p style='color:var(--muted)'>把不要的角色交回组织，组织按他的等级与资历折成功勋返还。" +
-"溶解后<b style='color:var(--bad)'>无法恢复</b>。专属角色与全功率奖励角色不能溶解。</p>";
-html += "<p>Current Honor：<b class='k'>" + (S.honor || 0) + "</b>　可溶解 " + list.length + " 名</p>";
-if (!list.length) {
-html += "<p class='muted'>没有可以溶解的角色。</p>";
+const list = (S.allies || []).filter(function (a) { return a.id !== HERO_ID; });
+
+const alive = {};
+(S.allies || []).forEach(function (a) { alive[a.id] = 1; });
+disSel = disSel.filter(function (id) { return alive[id]; });
+let html = "<p style='color:var(--muted)'>" + tr("把不要的角色交回组织，组织按他的等级与资历折成功勋返还。") +
+tr("溶解后") + "<b style='color:var(--bad)'>" + tr("无法恢复") + "</b>" +
+tr("。专属角色与全力奖励角色不能溶解。") + "<br>" +
+tr("点卡片可以多选。") + "</p>";
+html += "<div class='stat-grid'>" +
+box(tr("Current Honor"), String(S.honor || 0)) +
+box(tr("当前称号"), S.title ? S.title : "—") +
+box(tr("可溶解"), String(list.length) + " " + tr("名")) +
+box(tr("Selected"), disSel.length + " " + tr("名")) +
+box(tr("预计返还"), "+" + disSelValue()) +
+"</div>";
+if (disSel.length) {
+html += "<p><button class='btn btn-primary' data-disdo='sel'>" + tr("溶 解 选 中") + "（" + disSel.length + "）</button> " +
+"<button class='btn btn-tiny' data-disdo='clear'>" + tr("清 空 选 择") + "</button></p>";
 } else {
-const groups = groupByLevel(list);
+html += "<p style='color:var(--muted)'>" + tr("还没选。点下面的卡片多选，或用各等级的一键按钮。") + "</p>";
+}
+if (!list.length) {
+html += "<p class='muted'>" + tr("没有可以溶解的角色。") + "</p>";
+} else {
+
+DIS_TIERS.forEach(function (t) {
+const group = list.filter(function (a) { return disTierOf(a) === t; });
+if (!group.length) return;
+const free = group.filter(canDissolve);
+const total = free.reduce(function (n, a) { return n + dissolveValue(a); }, 0);
+html += "<div style='display:flex;align-items:center;gap:8px;margin:12px 0 2px'>" +
+"<span style='color:var(--muted);font-size:12px;letter-spacing:2px'>" +
+tr(disTierName(t)) + "（" + group.length + "）</span>" +
+(free.length
+? "<button class='btn btn-tiny btn-danger' data-distier='" + t + "'>" +
+tr("一键溶解本级") + "（" + free.length + " · +" + total + "）</button>"
+: "<span style='color:var(--muted);font-size:12px'>" + tr("本级无可溶解") + "</span>") +
+"</div>";
 html += "<div class='codex-grid'>";
-groups.forEach((grp) => {
-html += "<div style='flex:1 1 100%;margin:8px 0 2px;color:var(--muted);font-size:12px;letter-spacing:2px'>" +
-grp.band.name + "（" + grp.items.length + "）</div>";
-grp.items.forEach((a) => {
+group.forEach(function (a) {
 const v = dissolveValue(a);
 const locked = !canDissolve(a);
-html += "<div class='codex-card" + (locked ? " locked" : "") + "'>" +
-"<div class='cc-name' style='color:" + (a.color || "#ddd") + "'>" + a.name + "</div>" +
-"<div class='cc-sub'>" + (DATA.recruit.tiers[a.rarity] || DATA.recruit.tiers[a.tier] || {}).name +
-" ｜ " + (ROLE_NAMES[roleOfAlly(a)] || "战斗型") + " ｜ Lv." + a.level + "</div>" +
+const on = disSel.indexOf(a.id) >= 0;
+html += "<div class='codex-card" + (locked ? " locked" : "") + (on ? " hot" : "") + "'" +
+(locked ? "" : " data-dispick='" + a.id + "'") + ">" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" +
+(on ? "✔ " : "") + a.name + "</div>" +
+"<div class='cc-sub'>" + (ROLE_NAMES[roleOfAlly(a)] || tr("战斗型")) + " ｜ Lv." + a.level + "</div>" +
 (locked
-? "<div class='cc-sub' style='color:var(--muted)'>不可溶解</div>"
-: "<div class='cc-sub' style='color:var(--gold2)'>返还 " + v + " 功勋</div>" +
-"<div class='cc-sub'><button class='btn btn-tiny btn-danger' data-dissolve='" + a.id + "'>溶 解</button></div>") +
+? "<div class='cc-sub' style='color:var(--muted)'>" + tr("不可溶解") + "</div>"
+: "<div class='cc-sub' style='color:var(--gold2)'>" + tr("返还") + " " + v + " " + tr("功勋") + "</div>") +
 "</div>";
 });
-});
 html += "</div>";
+});
 }
-html += "<p style='margin-top:12px'><button class='btn btn-tiny' data-disall='1'>一键溶解全部见习成员</button></p>";
-openModal("溶解", html);
-$$("#modalBody [data-dissolve]").forEach((c) => {
-c.onclick = () => {
-const id = c.getAttribute("data-dissolve");
-const a = (S.allies || []).find((x) => x.id === id);
-if (!a || !canDissolve(a)) { toast("这个角色不能溶解。"); return; }
-const v = dissolveValue(a);
-askConfirm("确认溶解", "把 <b>" + a.name + "</b>（Lv." + a.level + "）交回组织？<br>返还 <b>" + v +
-"</b> 功勋。<br><br><span style='color:var(--bad)'>此操作不可恢复。</span>", "溶 解", function () {
-S.honor = (S.honor || 0) + v;
-S.allies = S.allies.filter((x) => x.id !== id);
-invalidateAllyIndex();
-S.squad = (S.squad || []).filter((x) => x !== id);
-if (!S.squad.length && (S.allies || []).length) S.squad = [S.allies[0].id];
-saveGame(true);
-toast("已溶解 " + a.name + "，+" + v + " 功勋");
-openDissolve();
-}, true);
+openModal(tr("溶解"), html);
+
+$$("#modalBody [data-dispick]").forEach(function (c) {
+c.onclick = function (ev) {
+if (ev && ev.stopPropagation) ev.stopPropagation();
+const id = c.getAttribute("data-dispick");
+const i = disSel.indexOf(id);
+if (i >= 0) disSel.splice(i, 1); else disSel.push(id);
+openDissolve(false);
 };
 });
-$$("#modalBody [data-disall]").forEach((c) => {
-c.onclick = () => {
-const targets = (S.allies || []).filter((a) => canDissolve(a) && (a.rarity || a.tier) === "common");
-if (!targets.length) { toast("没有可以溶解的见习成员。"); return; }
-const total = targets.reduce((n, a) => n + dissolveValue(a), 0);
-askConfirm("批量溶解", "溶解全部 <b>" + targets.length + "</b> 名见习成员？<br>共返还 <b>" + total +
-"</b> 功勋。<br><br><span style='color:var(--bad)'>此操作不可恢复。</span>", "全 部 溶 解", function () {
-const ids = targets.map((a) => a.id);
-S.honor = (S.honor || 0) + total;
-S.allies = S.allies.filter((a) => ids.indexOf(a.id) < 0);
-invalidateAllyIndex();
-S.squad = (S.squad || []).filter((id) => ids.indexOf(id) < 0);
-if (!S.squad.length && (S.allies || []).length) S.squad = [S.allies[0].id];
-saveGame(true);
-toast("已溶解 " + ids.length + " 名，+" + total + " 功勋");
-openDissolve();
-}, true);
+
+$$("#modalBody [data-distier]").forEach(function (b) {
+b.onclick = function (ev) {
+if (ev && ev.stopPropagation) ev.stopPropagation();
+const t = b.getAttribute("data-distier");
+const targets = (S.allies || []).filter(function (a) { return canDissolve(a) && disTierOf(a) === t; });
+if (!targets.length) { toast("本级没有可以溶解的。"); return; }
+const total = targets.reduce(function (n, a) { return n + dissolveValue(a); }, 0);
+askConfirm(tr("批量溶解"),
+tr("溶解全部") + " <b>" + targets.length + "</b> " + tr("名") + tr(disTierName(t)) + "？<br>" +
+tr("共返还") + " <b>" + total + "</b> " + tr("功勋") + "。<br><br>" +
+"<span style='color:var(--bad)'>" + tr("此操作不可恢复。") + "</span>",
+tr("全 部 溶 解"),
+function () { disDo(targets.map(function (a) { return a.id; }), tr(disTierName(t))); openDissolve(false); },
+true);
+};
+});
+
+$$("#modalBody [data-disdo]").forEach(function (b) {
+b.onclick = function (ev) {
+if (ev && ev.stopPropagation) ev.stopPropagation();
+const act = b.getAttribute("data-disdo");
+if (act === "clear") { disSel = []; openDissolve(false); return; }
+if (act !== "sel") return;
+const targets = (S.allies || []).filter(function (a) { return disSel.indexOf(a.id) >= 0 && canDissolve(a); });
+if (!targets.length) { toast("选中的都不能溶解。"); return; }
+const total = targets.reduce(function (n, a) { return n + dissolveValue(a); }, 0);
+askConfirm(tr("批量溶解"),
+tr("溶解选中的") + " <b>" + targets.length + "</b> " + tr("名") + "？<br>" +
+tr("共返还") + " <b>" + total + "</b> " + tr("功勋") + "。<br><br>" +
+"<span style='color:var(--bad)'>" + tr("此操作不可恢复。") + "</span>",
+tr("溶 解"),
+function () { disDo(targets.map(function (a) { return a.id; }), ""); openDissolve(false); },
+true);
 };
 });
 }
@@ -4619,8 +4656,8 @@ if (newOnes && newOnes.length) {
 html += "<h4>This Roster Result</h4><div class=\'codex-grid\'>";
 newOnes.forEach((a) => {
 const t = DATA.recruit.tiers[a.tier] || {};
-html += "<div class='codex-card' style='border-color:" + a.color + "'>" +
-"<div class='cc-name' style='color:" + a.color + "'>" + a.name + "［" + t.name + "］" + (a.dupe ? "(duplicate, converts to 400 Honor)" : "") + "</div>" +
+html += "<div class='codex-card' style='border-color:" + accentColor(a) + "'>" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" + a.name + "［" + t.name + "］" + (a.dupe ? "(duplicate, converts to 400 Honor)" : "") + "</div>" +
 "<div class='cc-sub'>" + (a.note || "") + "</div>" +
 "<div class=\'cc-sub\'>Attack Level " + allyStats(a).atk + " ｜ HP " + allyStats(a).hp + " ｜ Speed " + allyStats(a).spd + "</div></div>";
 });
@@ -4648,7 +4685,7 @@ html += "<h4>Equip For Whom</h4><div class=\'codex-grid\'>";
 (S.allies || []).forEach((a) => {
 const sel = target && a.id === target.id;
 html += "<div class='codex-card" + (sel ? " hot" : "") + "' data-armtarget='" + a.id + "'>" +
-"<div class='cc-name' style='color:" + a.color + "'>" + a.name + (sel ? " ◆" : "") + "</div>" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" + a.name + (sel ? " ◆" : "") + "</div>" +
 "<div class='cc-sub'>" + ((DATA.weapons.find((w) => w.id === (S.weaponOf || {})[a.id]) || {}).name || "Bare Hands (Fist · Leg)") + "</div></div>";
 });
 html += "</div>";
@@ -4713,6 +4750,154 @@ saveGame(true); renderHud(); openArmory();
 function canBuyWeapon(w) {
 return w.rarity === "eternal" ? 6000 : w.rarity === "relic" ? 2400 : w.rarity === "elite" ? 1100 : 500;
 }
+
+
+function applyJar(jarId, allyId, count) {
+const it = DATA.items.find((x) => x.id === jarId);
+const a = (S.allies || []).find((x) => x.id === allyId);
+if (!it || !a) { toast(tr("选择有误。")); return 0; }
+const have = (S.bag || {})[jarId] || 0;
+if (!have) { toast(tr("没有这个道具了。")); return 0; }
+if (a.level >= MAX_LEVEL) { toast(a.name + " " + tr("已经满级了。")); return 0; }
+
+let want = Math.max(1, Math.floor(count || 1));
+want = Math.min(want, have);
+const before = a.level;
+let used = 0;
+let amount = 0;
+let ups = 0;
+if (it.kind === "lvup") {
+const per = it.val || 1;
+const need = MAX_LEVEL - a.level;
+
+used = Math.min(want, Math.ceil(need / per));
+a.level = Math.min(MAX_LEVEL, a.level + per * used);
+if (a.level >= MAX_LEVEL) { a.level = MAX_LEVEL; a.exp = 0; }
+ups = a.level - before;
+} else {
+const per = it.val || 0;
+
+while (used < want && a.level < MAX_LEVEL) {
+allyGiveExp(a, per);
+amount += per;
+used++;
+}
+ups = a.level - before;
+}
+if (used <= 0) { toast(a.name + " " + tr("已经满级了。")); return 0; }
+
+S.bag[jarId] = have - used;
+if (S.bag[jarId] <= 0) delete S.bag[jarId];
+if (a.id === HERO_ID) {
+S.level = Math.max(S.level || 1, a.level);
+S.exp = a.exp || 0;
+syncHero();
+}
+saveGame(true);
+toast(a.name + "：" + tr(it.name) + " ×" + used + " → " +
+(it.kind === "lvup"
+? tr("等级") + " " + before + " → " + a.level + "（+" + ups + "）"
+: tr("经验") + " +" + amount + (ups > 0 ? "，" + tr("等级") + " " + before + " → " + a.level + "（+" + ups + "）" : "")));
+
+if (UI.jarPick) {
+UI.jarPick.count = 1;
+if (((S.bag || {})[jarId] || 0) > 0) { openJarPicker(); return amount; }
+}
+UI.jarPick = null;
+openBag();
+return amount; 
+}
+function openJarPicker() {
+const P = UI.jarPick;
+if (!P) return;
+const it = DATA.items.find((x) => x.id === P.jar);
+if (!it) return;
+const list = jarTargets();
+if (!list.some((a) => a.id === P.ally)) P.ally = list.length ? list[0].id : null;
+const target = list.find((a) => a.id === P.ally);
+const have = (S.bag || {})[P.jar] || 0;
+if (!P.count || P.count < 1) P.count = 1;
+if (P.count > have) P.count = Math.max(1, have);
+let html = "<p style='color:var(--muted)'>" + tr(it.name) + "：" + tr(it.desc).replace(/\n/g, "<br>") + "</p>";
+html += "<p>" + tr("当前持有") + " <b class='k'>×" + have + "</b>。" + tr("选择要喂给哪位角色：") + "</p>";
+html += "<div class='codex-grid'>";
+const groups = groupByLevel(list);
+groups.forEach((grp) => {
+html += "<div style='flex:1 1 100%;margin:8px 0 2px;color:var(--muted);font-size:12px;letter-spacing:2px'>" +
+tr(grp.band.name) + "（" + grp.items.length + "）</div>";
+grp.items.forEach((a) => {
+const st = allyStats(a);
+const on = (a.id === P.ally);
+const role = (ROLE_NAMES[roleOfAlly(a)] || tr("战斗型"));
+html += "<div class='codex-card" + (on ? " hot" : "") + "' data-jarpick='" + a.id + "'" +
+(on ? " style='border-color:var(--gold);background:rgba(214,178,90,.12)'" : "") + ">" +
+"<div class='cc-name' style='" + nameStyle(a) + "'>" + a.name + (on ? " ◆" : "") + "</div>" +
+"<div class='cc-sub'>" + role + " ｜ Lv." + a.level + " ｜ " +
+tr((DATA.recruit.tiers[a.rarity] || DATA.recruit.tiers[a.tier] || {}).name || "") + "</div>" +
+"<div class='cc-sub'>" + tr("生命") + " " + st.hp + " ｜ " + tr("攻击等级") + " " + st.atk + "</div>" +
+"<div class='cc-sub' style='color:var(--muted)'>" + tr("经验") + " " + Math.floor(a.exp || 0) + " / " +
+(a.level >= MAX_LEVEL ? tr("满级") : expNeeded(a.level)) + "</div></div>";
+});
+});
+html += "</div>";
+
+const maxUse = Math.max(1, Math.min(have, it.kind === "lvup"
+? Math.max(1, Math.ceil((MAX_LEVEL - (target ? target.level : 1)) / (it.val || 1)))
+: have));
+html += "<div class='set-row' style='margin-top:12px'><span>" + tr("使用数量") + "</span>" +
+"<input type='range' id='jarCount' min='1' max='" + maxUse + "' value='" + Math.min(P.count, maxUse) + "'>" +
+"<b class='k' id='jarCountNum' style='min-width:52px;text-align:right'>×" + Math.min(P.count, maxUse) + "</b></div>";
+html += "<p><button class='btn btn-tiny' data-jarq='" + Math.ceil(maxUse / 2) + "'>" + tr("一 半") + "</button> " +
+"<button class='btn btn-tiny' data-jarq='" + maxUse + "'>" + tr("全 部") + "（×" + maxUse + "）</button> " +
+"<button class='btn btn-tiny' data-jarq='1'>" + tr("×1") + "</button></p>";
+if (target) {
+const cnt = Math.min(P.count, maxUse);
+if (it.kind === "lvup") {
+const canUps = Math.min((it.val || 1) * cnt, MAX_LEVEL - target.level);
+const real = Math.min(cnt, Math.ceil((MAX_LEVEL - target.level) / (it.val || 1)));
+html += "<p style='color:var(--gold2)'>" + tr("给") + " <b>" + target.name + "</b> " + tr("使用") + " ×" + cnt +
+" → " + tr("等级") + " " + target.level + " → " + Math.min(MAX_LEVEL, target.level + canUps) +
+(canUps > 0 ? "（+" + canUps + "）" : "（" + tr("已满级") + "）") +
+(real < cnt ? "<br><span style='color:var(--muted)'>" + tr("只需") + " " + real + " " + tr("个就够，多的不会扣。") + "</span>" : "") +
+"</p>";
+} else {
+const amount = (it.val || 0) * cnt;
+let sim = target.level, rem = (target.exp || 0) + amount, ups = 0;
+let guard = 0;
+while (sim < MAX_LEVEL && rem >= expNeeded(sim) && guard++ < 999) { rem -= expNeeded(sim); sim++; ups++; }
+if (sim >= MAX_LEVEL) { sim = MAX_LEVEL; rem = 0; }
+html += "<p style='color:var(--gold2)'>" + tr("给") + " <b>" + target.name + "</b> " + tr("使用") + " ×" + cnt +
+" → " + tr("经验") + " +" + amount + "，" + tr("等级") + " " + target.level + " → " + sim +
+(ups > 0 ? "（+" + ups + "）" : "") + "</p>";
+}
+} else {
+html += "<p class='muted'>" + tr("没有可以使用的角色。") + "</p>";
+}
+html += "<p><button class='btn btn-primary' data-jarok='1'>" + tr("确 定 使 用") + "</button> " +
+"<button class='btn btn-tiny' data-jarcancel='1'>" + tr("关 闭") + "</button></p>";
+openModal(tr("使用道具"), html);
+$$("#modalBody [data-jarpick]").forEach((c) => {
+c.onclick = () => { P.ally = c.getAttribute("data-jarpick"); P.count = 1; openJarPicker(); };
+});
+const range = document.getElementById("jarCount");
+const num = document.getElementById("jarCountNum");
+if (range) {
+range.oninput = () => {
+P.count = parseInt(range.value, 10) || 1;
+if (num) num.textContent = "×" + P.count;
+openJarPicker(); 
+};
+}
+$$("#modalBody [data-jarq]").forEach((b) => {
+b.onclick = () => { P.count = parseInt(b.getAttribute("data-jarq"), 10) || 1; openJarPicker(); };
+});
+$$("#modalBody [data-jarok]").forEach((c) => {
+c.onclick = () => applyJar(P.jar, P.ally, P.count);
+});
+$$("#modalBody [data-jarcancel]").forEach((c) => {
+c.onclick = () => { UI.jarPick = null; openBag(); };
+});
+}
 function openBag() {
 if (!S) return;
 S.bag = S.bag || {};
@@ -4760,7 +4945,8 @@ saveGame(true); renderHud(); openBag();
 $$("#modalBody [data-usejar]").forEach((c) => {
 c.onclick = () => giveExpJar(c.getAttribute("data-usejar"));
 });
-const JAR_COST = { jar_low: 400, jar_mid: 1000, jar_high: 2200, jar_t1: 6000 };
+
+const JAR_COST = { jar_low: 400, jar_mid: 1000, jar_high: 2200, jar_t1: 6000, jar_t5: 30000 };
 $$("#modalBody [data-buyjar]").forEach((c) => {
 c.onclick = () => {
 const id = c.getAttribute("data-buyjar");
@@ -4940,6 +5126,9 @@ return S.quests;
 }
 window.HengDebug = {
 state: function () { return S; },
+invalidateAlly: function () { invalidateAllyIndex(); return true; },
+dissolveValue: function (a) { return dissolveValue(a); },
+openDissolve: function () { openDissolve(); return true; },
 mats: function () { return S.mats; },
 counters: function () { return S.questCounters; },
 giveMat: devGiveMat,
@@ -5085,6 +5274,8 @@ prevSquad: (S && S.spPrevSquad ? S.spPrevSquad.slice() : null) };
 spOpen: function () { openSpecialBosses(); return true; },
 spSquad: function (id) { openSpSquad(id); return true; },
 spStart: function (id) { startSpecialBoss(id); return B ? { boss: B.bossId, sp: B.spBoss } : null; },
+nameStyle: function (a) { return nameStyle(a); },
+grantSp: function (id) { grantSpReward(id); return true; },
 spPick: function (id) {
 S.squad = S.squad || [];
 if (S.squad.indexOf(id) < 0) S.squad.push(id);
@@ -5494,10 +5685,22 @@ gainMat(mid, n);
 got[mid] = (got[mid] || 0) + n;
 }
 });
+
+const isBossFight = (enemies || []).some(function (en) {
+const k = en.key || en.id || "";
+return (DATA.enemies[k] && DATA.enemies[k].bossSkills) || en.isBoss || en.boss;
+});
 const jarRoll = Math.random();
-if (jarRoll < 0.06) gainItem("jar_high", 1);
-else if (jarRoll < 0.20) gainItem("jar_mid", 1);
-else if (jarRoll < 0.45) gainItem("jar_low", 1);
+if (isBossFight) {
+if (jarRoll < 0.03) gainItem("jar_t5", 1);
+else if (jarRoll < 0.20) gainItem("jar_high", 1);
+else if (jarRoll < 0.48) gainItem("jar_mid", 1);
+else if (jarRoll < 0.82) gainItem("jar_low", 1);
+} else {
+if (jarRoll < 0.05) gainItem("jar_high", 1);
+else if (jarRoll < 0.18) gainItem("jar_mid", 1);
+else if (jarRoll < 0.48) gainItem("jar_low", 1);
+}
 try {
 const chIdx = (S && typeof S.chapterIndex === "number") ? S.chapterIndex : -1;
 const inTrue = (diffIdRaw() === "true") && (chIdx === 2 || chIdx === 3 || chIdx === 4);
@@ -6226,6 +6429,7 @@ else if (act === "quests") openQuests();
 else if (act === "difficulty") openDifficulty();
 else if (act === "timeline") openTimeline();
 else if (act === "settings") openSettings();
+else if (act === "title-archive" || act === "title-about") openTitleGroup(act);
 else if (act === "mymusic") openMyMusic();
 else if (act === "commissions") openCommissions();
 else if (act === "duel") openDuel();
