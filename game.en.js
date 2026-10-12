@@ -317,7 +317,7 @@ function newState(name, origin, school, oath) {
   /* 专属角色：以玩家名字命名，占一个上场名额 */
   try {
     const h = heroAlly();
-    if (h) { st.allies.unshift(h); st.squad.unshift(h.id); }
+    if (h) { st.allies.unshift(h); st.squad.unshift(h.id); invalidateAllyIndex(); }
   } catch (e) {}
   st.dev = false;
   st.animSpeed = "fast";
@@ -923,6 +923,13 @@ function duelSettle() {
     if (win) toast("Bet won! +" + gross + " Honor (principal " + D_.bet + " returned + won " + D_.payout + "）");
     else toast("Wrong bet, " + D_.bet + " Honor deducted.");
   } catch (e) {}
+  /* 每赌完一场就强制换一批新对战角色，
+     否则同一对会一直重复，赔率也被记熟了。 */
+  try {
+    setTimeout(function () {
+      try { if (typeof D_ !== "undefined" && D_ && D_.phase === "over") newDuelMatch(); } catch (e2) {}
+    }, 1400);
+  } catch (e) {}
 }
 
 /* ============================================================
@@ -1046,10 +1053,16 @@ function openSpSquad(bossId) {
       else if (a === "back") { S.spDraft = null; openSpecialBosses(); }
       else if (a === "go") {
         if (!S.spDraft.length) { toast("Bring at least one member."); return; }
-        if (!confirm("Confirm Challenge [" + b.name + "]?\\n\\nAfter entering, the other Full-Power Form is permanently closed, with no taking it back.")) return;
-        const draft = S.spDraft.slice();
-        S.spDraft = null;
-        startSpecialBoss(bossId, draft);
+        /* 用游戏内确认框，不用原生 confirm()：
+           安卓 WebView 会拦截原生 confirm，点了会「没反应」。 */
+        askConfirm("确认挑战",
+          "Confirm Challenge [" + b.name + "】？<br><br>进入后另一位将永久关闭，无法反悔。",
+          "进 入 会 台",
+          function () {
+            const draft = (S.spDraft || []).slice();
+            S.spDraft = null;
+            startSpecialBoss(bossId, draft);
+          }, true);
       }
     };
   });
@@ -1146,6 +1159,7 @@ function grantSpReward(bossId) {
     spBoss: b.id, spPower: r.power || "∞",
     hp: null, sp: 20
   });
+  invalidateAllyIndex();
   S.honor = (S.honor || 0) + 8000;
   saveGame(true);
   toast("Special Character obtained:" + r.name + "(Power " + (r.power || "∞") + "）");
@@ -1214,7 +1228,7 @@ function renderDuel() {
     html += "<div class='set-row set-btns' style='margin-top:12px'>" +
       "<button class='btn btn-primary' data-duelact='fight'" +
       (D_.side ? "" : " disabled") + ">Start Spectating</button>" +
-      "<button class=\'btn\' data-duelact=\'new\'>New Pair</button>" +
+      "<button class='btn' data-duelact='new'>换 一 批（100 Honor)</button>" +
       "<button class=\'btn btn-ghost\' data-duelact=\'close\'>Close</button>" +
       "</div>";
     if (!D_.side) html += "<p style=\'color:var(--gold2)\'>First tap one of the two above to choose who you back.</p>";
@@ -1253,7 +1267,7 @@ function renderDuel() {
       html += "<p>Current Honor: <b class=\'k\'>" + (S.honor || 0) + "</b></p>";
       html += "<div class='set-row set-btns' style='margin-top:10px'>" +
         "<button class=\'btn btn-primary\' data-duelact=\'again\'>Another Round</button>" +
-        "<button class=\'btn\' data-duelact=\'new\'>New Pair</button>" +
+        "<button class='btn' data-duelact='new'>换 一 批（100 Honor)</button>" +
         "<button class=\'btn btn-ghost\' data-duelact=\'close\'>Close</button>" +
         "</div>";
     }
@@ -1297,7 +1311,15 @@ function renderDuel() {
       else if (a === "next") duelNextRound();
       else if (a === "auto") { let g = 0; while (D_ && D_.phase === "fight" && g++ < 60) duelNextRound(); }
       else if (a === "again") { D_.phase = "bet"; D_.a = makeDuelFighter(D_.pair[0]); D_.b = makeDuelFighter(D_.pair[1]); D_.round = 0; D_.log = []; D_.winner = null; renderDuel(); }
-      else if (a === "new") newDuelMatch();
+      else if (a === "new") {
+        /* 换一批：消耗功勋 */
+        if ((S.honor || 0) < 100) { toast("功勋不足（换一批需要 100）。"); return; }
+        S.honor -= 100;
+        refreshHonor();
+        saveGame(true);
+        toast("换一批：−100 功勋");
+        newDuelMatch();
+      }
       else if (a === "close") closeModal();
     };
   });
@@ -1623,7 +1645,21 @@ function nextRestartTier() {
   if (cur === "hard" && S.trueUnlocked) return "true";
   return null;
 }
-function switchDifficulty(id) {
+function doRestartTo(id, nm) {
+  S.difficulty = id;
+    S.chapters = {};
+    S.chapterIndex = 0;
+    S.stage = 0;
+    S.unlocked = Math.max(1, Math.min(S.unlocked || 1, DATA.chapters.length));
+    if (S.dev) S.unlocked = DATA.chapters.length;
+    UI.selectedChapter = 0;
+    saveGame(true);
+    closeModal();
+    renderMap();
+    show("map");
+    toast("已重启主线到【" + nm + "】，从第一传重新开始。");
+}
+function switchDifficulty(id, force) {
   if (!DATA.difficulties[id]) return;
   const cur = diffIdRaw();
   if (id === cur) { toast("Already at this difficulty."); return; }
@@ -1634,23 +1670,19 @@ function switchDifficulty(id) {
   if (id === "hard" && !S.hardUnlocked) { toast("Hard is not unlocked yet."); return; }
   if (id === "true" && !S.trueUnlocked) { toast("True is not unlocked yet."); return; }
   const nm = DATA.difficulties[id].name;
-  if (!confirm("重启主线到【" + nm + "】？\n\n" +
-      "· 主线会从第一传第一幕重新开始\n" +
-      "· 等级、功勋、队友、Weapon、招募到的角色都会保留\n" +
-      "· 关卡进度清零\n\n" +
-      "注意：这是不可逆的。重启到【" + nm + "】之后，就再也回不到更低的难度了。")) return;
-  S.difficulty = id;
-  S.chapters = {};
-  S.chapterIndex = 0;
-  S.stage = 0;
-  S.unlocked = Math.max(1, Math.min(S.unlocked || 1, DATA.chapters.length));
-  if (S.dev) S.unlocked = DATA.chapters.length;
-  UI.selectedChapter = 0;
-  saveGame(true);
-  closeModal();
-  renderMap();
-  show("map");
-  toast("已重启主线到【" + nm + "】，从第一传重新开始。");
+  if (force) {
+    /* 内部/调试调用：跳过确认，直接执行 */
+    doRestartTo(id, nm);
+    return;
+  }
+  askConfirm("重启主线",
+      "重启到【" + nm + "】？<br><br>· 主线会从第一传第一幕重新开始<br>· 等级、功勋、队友、Weapon、招募到的角色都会保留<br>· 关卡进度清零<br><br><b style='color:var(--bad)'>注意：这是不可逆的。重启后回不到更低的难度。</b>",
+      "重 启 到 【" + nm + "】",
+      function () {
+
+        doRestartTo(id, nm);
+
+      }, true);
 }
 
 function quitGame() {
@@ -1711,14 +1743,14 @@ function openSaveSlots() {
     const m = s.meta;
     const isAct = String(act) === s.key;
     return "<div class='slot" + (s.has ? "" : " empty") + (isAct ? " act" : "") + "'>" +
-      "<div class='slot-no'>" + s.key + " slot" + (isAct ? "　<span class=\'slot-tag\'>Current</span>" : "") + "</div>" +
+      "<div class='slot-no'>" + s.key + " slot" + (isAct ? " <span class=\'slot-tag\'>Current</span>" : "") + "</div>" +
       (s.has
         ? "<div class='slot-main'><span class='slot-name'>" + m.name + "</span>" +
           "<span class='slot-lv'>Lv." + m.level + "</span></div>" +
           "<div class='slot-time'>" + fmtTime(m.at) + "</div>" +
           "<div class='slot-sub'>" + (DATA.chapters[m.chapter] ? DATA.chapters[m.chapter].no : "—") +
             "　·　" + (DATA.difficulties[m.difficulty] ? DATA.difficulties[m.difficulty].name : "Normal") +
-            " · Honor " + (m.honor || 0) + "</div>" +
+            "  ·  Honor " + (m.honor || 0) + "</div>" +
           "<div class='slot-act'>" +
             "<button class='btn btn-tiny btn-primary' data-load='" + s.key + "\'>Load</button>" +
             "<button class='btn btn-tiny' data-save='" + s.key + "\'>Overwrite</button>" +
@@ -1731,7 +1763,7 @@ function openSaveSlots() {
           "</div>") +
       "</div>";
   }).join("");
-  openModal("Save Slot",
+  openModal("Save Slots",
     "<div class='slot-head'>" +
       "<span style=\'color:var(--muted)\'>Total " + SLOT_COUNT + " save slots. Each record shows the <b class=\'k\'>save time</b>, <b class=\'k\'>character name</b> and <b class=\'k\'>Lv level</b>.</span>" +
       "<button class=\'btn btn-tiny warn-btn\' id=\'saveWarn\' title=\'Save notes\'>❗ Notes</button>" +
@@ -1751,7 +1783,7 @@ function openSaveSlots() {
   }; });
   $$("#modalBody [data-del]").forEach((b) => { b.onclick = () => {
     const k = b.getAttribute("data-del");
-    askConfirm("Delete Save", "Delete " + k + " slot save?<br>This cannot be undone.", "Delete", () => {
+    askConfirm("Delete Save", "Delete " + k + "\'s save?<br>This cannot be undone.", "Delete", () => {
       deleteSlot(k);
       toast("Deleted " + k + " slot");
       openSaveSlots();
@@ -1821,7 +1853,7 @@ function exportSave() {
     "<p>The text below is your entire save (all slots). <b class=\'k\'>Copy it</b> and keep it in a note, cloud drive, or chat log.</p>" +
     "<p>After changing devices or reinstalling, use \"Import Save\" to paste it back.</p>" +
     "<div class='stat-grid'>" +
-      box0("Save Slot", Object.keys(slotData()).length) +
+      box0("Save Slots", Object.keys(slotData()).length) +
       box0("Size", Math.round(b64.length / 1024) + " KB") +
       box0("Export Time", fmtTime(payload.at)) +
     "</div>");
@@ -1921,7 +1953,7 @@ function applyLoadedSave(st) {
   normalizeAllyJobs();
   if (!S.spent) S.spent = { atk:0, def:0, spd:0, will:0, hpBonus:0 };
   if (!S.allied) S.allied = {};
-  if (!S.allies) { S.allies = starterAllies(); S.squad = [S.allies[0].id]; }
+  if (!S.allies) { S.allies = starterAllies(); S.squad = [S.allies[0].id]; invalidateAllyIndex(); }
   if (!S.squad) S.squad = (S.allies[0] ? [S.allies[0].id] : []);
   /* 老存档没有专属角色：这里补建并同步等级 */
   try { syncHero(); } catch (e) {}
@@ -2474,7 +2506,7 @@ function allyAbilities(ally, w) {
   return pool;
 }
 function playerUnitFor(ally) {
-  const w = DATA.weapons.find((x) => x.id === (S.weaponOf || {})[ally.id] || ally.weaponId) || DATA.weapons[0];
+  const w = wpOf((S.weaponOf || {})[ally.id] || ally.weaponId);
   const lv = ally.level || 1;
   const st = allyStats(ally);
   const base = st.hp;
@@ -3796,6 +3828,7 @@ function renderTools() {
 
 /* ---------- 结算 ---------- */
 function winBattle() {
+  if (!B) return;              /* 没有进行中的战斗：直接忽略（防御性） */
   if (B.over) return;
   B.over = true; B.locked = true; B.stageWin = true;
   livingEnemies().forEach((e) => { e.alive = false; });
@@ -3902,7 +3935,7 @@ function syncPartyFromBattle() {
     u.ally.level = u.ally.level || 1;
   });
 }
-function allyById(id) { return (S.allies || []).find((a) => a.id === id) || null; }
+function allyById(id) { return allyIndex()[id] || null; }
 
 function showResult(win) {
   const st = B.stage;
@@ -4112,6 +4145,33 @@ function allyGiveExp(a, amount) {
   return ups;
 }
 /* 所有可以吃经验罐的角色：专属角色 + 招募到的队员 */
+/* ---------- 按等级分档：编队与经验罐都用这个，方便找角色 ---------- */
+const LEVEL_BANDS = [
+  { id: "l1",   name: "Lv.1-9",    min: 1,   max: 9 },
+  { id: "l10",  name: "Lv.10-29",  min: 10,  max: 29 },
+  { id: "l30",  name: "Lv.30-59",  min: 30,  max: 59 },
+  { id: "l60",  name: "Lv.60-99",  min: 60,  max: 99 },
+  { id: "l100", name: "Lv.100-149",min: 100, max: 149 },
+  { id: "l150", name: "Lv.150-199",min: 150, max: 199 },
+  { id: "l200", name: "Lv.200（满级）", min: 200, max: 9999 }
+];
+function bandOf(level) {
+  const lv = Math.max(1, Math.floor(level || 1));
+  for (const b of LEVEL_BANDS) if (lv >= b.min && lv <= b.max) return b.id;
+  return "l1";
+}
+/* 把一组角色按等级分档，档内按等级从高到低 */
+function groupByLevel(list) {
+  const buckets = {};
+  (list || []).forEach((a) => {
+    const k = bandOf(a.level);
+    (buckets[k] = buckets[k] || []).push(a);
+  });
+  Object.keys(buckets).forEach((k) => {
+    buckets[k].sort((x, y) => (y.level || 1) - (x.level || 1) || String(x.name).localeCompare(String(y.name)));
+  });
+  return LEVEL_BANDS.map((b) => ({ band: b, items: buckets[b.id] || [] })).filter((x) => x.items.length);
+}
 function jarTargets() {
   if (!S) return [];
   S.allies = S.allies || [];
@@ -4142,7 +4202,11 @@ function openJarPicker() {
   let html = "<p style='color:var(--muted)'>" + tr(it.name) + "：" + tr(it.desc).replace(/\n/g, "<br>") + "</p>";
   html += "<p>当前持有 <b class='k'>×" + ((S.bag || {})[P.jar] || 0) + "</b>。选择要给哪位角色使用：</p>";
   html += "<div class='codex-grid'>";
-  list.forEach((a) => {
+  const groups = groupByLevel(list);
+  groups.forEach((grp) => {
+    html += "<div style='flex:1 1 100%;margin:8px 0 2px;color:var(--muted);font-size:12px;letter-spacing:2px'>" +
+      grp.band.name + "（" + grp.items.length + "）</div>";
+    grp.items.forEach((a) => {
     const st = allyStats(a);
     const on = (a.id === P.ally);
     const role = (ROLE_NAMES[roleOfAlly(a)] || "战斗型");
@@ -4154,6 +4218,7 @@ function openJarPicker() {
       "<div class=\'cc-sub\'>HP " + st.hp + " ｜ Attack Level " + st.atk + "</div>" +
       "<div class='cc-sub' style='color:var(--muted)'>EXP " + Math.floor(a.exp || 0) + " / " +
         (a.level >= MAX_LEVEL ? "满级" : expNeeded(a.level)) + "</div></div>";
+    });
   });
   html += "</div>";
   if (target) {
@@ -4273,7 +4338,8 @@ function normalizeSquad() {
   if (!S) return { changed: false, removed: 0, trimmed: 0, cap: 2 };
   const cap = squadCap();
   const before = (S.squad || []).slice();
-  let clean = before.filter((id) => allyById(id));
+  const idx = allyIndex();
+  let clean = before.filter((id) => idx[id]);
   const removed = before.length - clean.length;
   let trimmed = 0;
   if (clean.length > cap) { trimmed = clean.length - cap; clean = clean.slice(0, cap); }
@@ -4287,7 +4353,8 @@ function squadLegality() {
   const cap = squadCap();
   if (!(S.squad || []).length) return "编队是空的。先到「Party」安排上场的人。";
   if (S.squad.length > cap) return "编队超编（" + S.squad.length + " / " + cap + "）。";
-  if ((S.squad || []).some((id) => !allyById(id))) return "编队里有已经不存在的成员。";
+  const aidx = allyIndex();
+  if ((S.squad || []).some((id) => !aidx[id])) return "编队里有已经不存在的成员。";
   return null;
 }
 function squadCap() {
@@ -4366,12 +4433,12 @@ function starterAllies() {
   ];
 }
 function allyPower(a) {
-  const w = DATA.weapons.find((x) => x.id === a.weaponId) || DATA.weapons[0];
+  const w = wpOf(a.weaponId);
   const lv = a.level || 1;
   return Math.round(a.base + lv * 7 + (w.atkBonus || 0) * 4);
 }
 function allyStats(a) {
-  const w = DATA.weapons.find((x) => x.id === a.weaponId) || DATA.weapons[0];
+  const w = wpOf(a.weaponId);
   const lv = a.level || 1;
   const R = ROLE_MOD[roleOfAlly(a)] || ROLE_MOD.battle;
   return {
@@ -4382,6 +4449,52 @@ function allyStats(a) {
     coins: Math.min(8, 4 + (w.coinCount || 0) + (a.coins || 0))
   };
 }
+/* ============================================================
+   性能优化层
+   ------------------------------------------------------------
+   1) Weapon / 角色 走 O(1) 查表，替掉满场跑的 .find()
+   2) renderBattle 合并到同一帧，避免连续调用重画多次
+   3) 体系池、等级分组做缓存
+   ============================================================ */
+/* ---- 兵装索引：DATA.weapons 是静态的，建一次表就够 ---- */
+let _wpIndex = null;
+function wpById(id) {
+  if (!_wpIndex) {
+    _wpIndex = {};
+    (DATA.weapons || []).forEach(function (w) { _wpIndex[w.id] = w; });
+  }
+  return _wpIndex[id] || null;
+}
+function wpOf(id) { return wpById(id) || (DATA.weapons && DATA.weapons[0]) || null; }
+
+/* ---- 角色索引：S.allies 会变，按「数组引用 + 长度 + 首个 id」做轻量失效 ---- */
+let _allyIndex = null, _allyVersion = 0, _allyBuiltAt = -1;
+/* 结构性变更（增删角色）时调用：下次查询会重建索引。
+   只改属性（等级/名字/Weapon）不需要调用——索引里存的是同一个对象引用。 */
+function invalidateAllyIndex() { _allyVersion++; }
+function allyIndex() {
+  if (_allyIndex && _allyBuiltAt === _allyVersion) return _allyIndex;
+  _allyIndex = {};
+  ((S && S.allies) || []).forEach(function (a) { if (a && a.id) _allyIndex[a.id] = a; });
+  _allyBuiltAt = _allyVersion;
+  return _allyIndex;
+}
+
+/* ---- 渲染合并：同一帧内多次请求只画一次 ---- */
+let _rafPending = false;
+function renderBattleSoon() {
+  if (_rafPending) return;
+  _rafPending = true;
+  const run = function () { _rafPending = false; try { renderBattle(); } catch (e) {} };
+  try {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+    else setTimeout(run, 0);
+  } catch (e) { run(); }
+}
+/* ---- 体系池缓存 ---- */
+let _heroPoolCache = null, _heroPoolSig = "";
+function invalidateHeroPool() { _heroPoolCache = null; _heroPoolSig = ""; }
+
 /* ---------- 专属角色：以玩家自己命名，等级自动跟随玩家 ---------- */
 const HERO_ID = "hero_self";
 const MAX_LEVEL = 200;              /* 所有角色的满级 */
@@ -4450,10 +4563,14 @@ function heroCanAddSchool() { return (S && S.level >= 15) && heroSchools().lengt
 /* 专属角色能用的武器：只限自己体系的那些 */
 function heroWeaponPool() {
   const ids = heroSchools();
-  return DATA.weapons.filter((w) => {
+  const sig = ids.join(",");
+  if (_heroPoolCache && _heroPoolSig === sig) return _heroPoolCache;
+  _heroPoolCache = DATA.weapons.filter((w) => {
     const sid = schoolIdOf(w);
     return sid && ids.indexOf(sid) >= 0;
   });
+  _heroPoolSig = sig;
+  return _heroPoolCache;
 }
 function heroAlly() {
   if (!S) return null;
@@ -4559,7 +4676,7 @@ function openSquad() {
     const a = allyById(id);
     if (!a) return;
     const st = allyStats(a);
-    const w = DATA.weapons.find((x) => x.id === a.weaponId) || DATA.weapons[0];
+    const w = wpOf(a.weaponId);
     html += "<div class='codex-card hot' data-unfield='" + id + "'>" +
       "<div class='cc-name' style='color:" + a.color + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
       "<div class='cc-sub'>[" + (ROLE_NAMES[roleOfAlly(a)] || "战斗型") + "] Lv." + a.level + " ｜ HP " + st.hp + " ｜ Attack Level " + st.atk + " ｜ Speed " + st.spd + " ｜ Coins " + st.coins + "</div>" +
@@ -4570,14 +4687,19 @@ function openSquad() {
   const bench = (S.allies || []).filter((a) => (S.squad || []).indexOf(a.id) < 0);
   html += "<h4>Standby Members (" + bench.length + "）</h4><div class='codex-grid'>";
   if (!bench.length) html += "<p class=\'muted\'>No one else. Go to \"Roster\" to recruit.</p>";
-  bench.forEach((a) => {
+  const benchGroups = groupByLevel(bench);
+  benchGroups.forEach((grp) => {
+    html += "<div style='flex:1 1 100%;margin:8px 0 2px;color:var(--muted);font-size:12px;letter-spacing:2px'>" +
+      grp.band.name + "（" + grp.items.length + "）</div>";
+    grp.items.forEach((a) => {
     const st = allyStats(a);
-    const w = DATA.weapons.find((x) => x.id === a.weaponId) || DATA.weapons[0];
+    const w = wpOf(a.weaponId);
     html += "<div class='codex-card' data-field='" + a.id + "'>" +
       "<div class='cc-name' style='color:" + a.color + "'>" + a.name + " <span style='font-size:10px'>［" + (DATA.recruit.tiers[a.tier] || {}).name + "］</span></div>" +
       "<div class='cc-sub'>Lv." + a.level + " ｜ HP " + st.hp + " ｜ Attack Level " + st.atk + " ｜ Speed " + st.spd + "</div>" +
       "<div class=\'cc-sub\'>Weapon: " + w.name + (a.note ? " ｜ " + a.note : "") + "</div>" +
       "<div class=\'cc-sub\' style=\'color:var(--gold2)\'>Tap → Field</div></div>";
+  });
   });
   html += "</div>";
   // 主角
@@ -4599,6 +4721,97 @@ function openSquad() {
       const id = c.getAttribute("data-unfield");
       S.squad = (S.squad || []).filter((x) => x !== id);
       saveGame(true); renderHud(); openSquad();
+    };
+  });
+}
+
+/* ---------- 溶解：把不要的角色交回组织，换成功勋 ---------- */
+/* 价值按稀有度 + 等级算，等级越高回收越多 */
+function dissolveValue(a) {
+  if (!a) return 0;
+  if (a.id === HERO_ID) return 0;                 /* 专属角色不可溶解 */
+  if (a.spBoss) return 0;                          /* 全功率奖励角色不可溶解 */
+  const base = { common: 120, advance: 260, elite: 520, relic: 900,
+                 eternal: 1600, quasi: 2000, super: 3200 }[a.rarity || a.tier] || 120;
+  const lv = Math.max(1, Math.floor(a.level || 1));
+  return Math.round(base + lv * 18 + (lv * lv) * 0.35);
+}
+function canDissolve(a) {
+  if (!a) return false;
+  if (a.id === HERO_ID) return false;
+  if (a.spBoss) return false;
+  return true;
+}
+function openDissolve() {
+  if (!S) return;
+  S.allies = S.allies || [];
+  const list = (S.allies || []).filter((a) => a.id !== HERO_ID);
+  let html = "<p style='color:var(--muted)'>把不要的角色交回组织，组织按他的等级与资历折成功勋返还。" +
+    "溶解后<b style='color:var(--bad)'>无法恢复</b>。专属角色与全功率奖励角色不能溶解。</p>";
+  html += "<p>Current Honor：<b class='k'>" + (S.honor || 0) + "</b>　可溶解 " + list.length + " 名</p>";
+  if (!list.length) {
+    html += "<p class='muted'>没有可以溶解的角色。</p>";
+  } else {
+    const groups = groupByLevel(list);
+    html += "<div class='codex-grid'>";
+    groups.forEach((grp) => {
+      html += "<div style='flex:1 1 100%;margin:8px 0 2px;color:var(--muted);font-size:12px;letter-spacing:2px'>" +
+        grp.band.name + "（" + grp.items.length + "）</div>";
+      grp.items.forEach((a) => {
+        const v = dissolveValue(a);
+        const locked = !canDissolve(a);
+        html += "<div class='codex-card" + (locked ? " locked" : "") + "'>" +
+          "<div class='cc-name' style='color:" + (a.color || "#ddd") + "'>" + a.name + "</div>" +
+          "<div class='cc-sub'>" + (DATA.recruit.tiers[a.rarity] || DATA.recruit.tiers[a.tier] || {}).name +
+            " ｜ " + (ROLE_NAMES[roleOfAlly(a)] || "战斗型") + " ｜ Lv." + a.level + "</div>" +
+          (locked
+            ? "<div class='cc-sub' style='color:var(--muted)'>不可溶解</div>"
+            : "<div class='cc-sub' style='color:var(--gold2)'>返还 " + v + " 功勋</div>" +
+              "<div class='cc-sub'><button class='btn btn-tiny btn-danger' data-dissolve='" + a.id + "'>溶 解</button></div>") +
+          "</div>";
+      });
+    });
+    html += "</div>";
+  }
+  html += "<p style='margin-top:12px'><button class='btn btn-tiny' data-disall='1'>一键溶解全部见习成员</button></p>";
+  openModal("溶解", html);
+
+  $$("#modalBody [data-dissolve]").forEach((c) => {
+    c.onclick = () => {
+      const id = c.getAttribute("data-dissolve");
+      const a = (S.allies || []).find((x) => x.id === id);
+      if (!a || !canDissolve(a)) { toast("这个角色不能溶解。"); return; }
+      const v = dissolveValue(a);
+      askConfirm("确认溶解", "把 <b>" + a.name + "</b>（Lv." + a.level + "）交回组织？<br>返还 <b>" + v +
+        "</b> 功勋。<br><br><span style='color:var(--bad)'>此操作不可恢复。</span>", "溶 解", function () {
+        S.honor = (S.honor || 0) + v;
+        S.allies = S.allies.filter((x) => x.id !== id);
+        invalidateAllyIndex();
+        S.squad = (S.squad || []).filter((x) => x !== id);
+        if (!S.squad.length && (S.allies || []).length) S.squad = [S.allies[0].id];
+        saveGame(true);
+        toast("已溶解 " + a.name + "，+" + v + " 功勋");
+        openDissolve();
+      }, true);
+    };
+  });
+  $$("#modalBody [data-disall]").forEach((c) => {
+    c.onclick = () => {
+      const targets = (S.allies || []).filter((a) => canDissolve(a) && (a.rarity || a.tier) === "common");
+      if (!targets.length) { toast("没有可以溶解的见习成员。"); return; }
+      const total = targets.reduce((n, a) => n + dissolveValue(a), 0);
+      askConfirm("批量溶解", "溶解全部 <b>" + targets.length + "</b> 名见习成员？<br>共返还 <b>" + total +
+        "</b> 功勋。<br><br><span style='color:var(--bad)'>此操作不可恢复。</span>", "全 部 溶 解", function () {
+        const ids = targets.map((a) => a.id);
+        S.honor = (S.honor || 0) + total;
+        S.allies = S.allies.filter((a) => ids.indexOf(a.id) < 0);
+        invalidateAllyIndex();
+        S.squad = (S.squad || []).filter((id) => ids.indexOf(id) < 0);
+        if (!S.squad.length && (S.allies || []).length) S.squad = [S.allies[0].id];
+        saveGame(true);
+        toast("已溶解 " + ids.length + " 名，+" + total + " 功勋");
+        openDissolve();
+      }, true);
     };
   });
 }
@@ -5075,7 +5288,7 @@ window.HengDebug = {
     return S.difficulty;
   },
   clearGame: function () { onGameCleared(); return { difficulty: diffId(), hard: S.hardUnlocked, true: S.trueUnlocked }; },
-  /* Save Slot（调试 / 控制台） */
+  /* Save Slots（调试 / 控制台） */
   slots: function () { return slotList(); },
   activeSlot: function () { return activeSlot(); },
   saveTo: function (k, silent) { return saveToSlot(k, silent === undefined ? true : silent); },
@@ -5108,7 +5321,7 @@ window.HengDebug = {
   leaveToGrind: function () { leaveToGrind(); },
   afterBattle: function () { afterBattle(); return { stage: S.stage, screen: UI.screen }; },
   stageWin: function () { return B ? !!B.stageWin : null; },
-  winBattle: function () { winBattle(); return true; },
+  winBattle: function () { if (!B) return null; winBattle(); return !!B; },
   loseBattle: function () { loseBattle(); return true; },
   /* 直接结算（跳过 800ms 定时器与 B.over 守卫，便于自动化验证） */
   settle: function (win) {
@@ -5215,6 +5428,9 @@ window.HengDebug = {
   /* 测试用：直接开某个章节的某一幕战斗 */
   allyStats: function (a) { return allyStats(a); },
   squadCap: function () { return squadCap(); },
+  allyById: function (id) { return allyById(id); },
+  groupByLevel: function (l) { return groupByLevel(l); },
+  localizeDom: function () { return localizeDom(document.body); },
   squadLegal: function () { return squadLegality(); },
   expNeed: function (lv) { return expNeeded(lv); },
   useJar: function (id) { return giveExpJar(id); },
@@ -5237,7 +5453,7 @@ window.HengDebug = {
   forceLangZh: function () { DATA.forcedLang = "zh"; if (S) S.lang = null; return curLang(); },
   nextTier: function () { return nextRestartTier(); },
   canRestart: function (id) { return canRestartTo(id); },
-  forceSwitch: function (id) { switchDifficulty(id); return S ? S.difficulty : null; },
+  forceSwitch: function (id) { switchDifficulty(id, true); return S ? S.difficulty : null; },
   selectChapter: function (i) { UI.selectedChapter = i; },
   renderMap: function () { renderMap(); },
   restartBtnText: function () {
@@ -5515,15 +5731,19 @@ function assistsForStage(stage) {
   if (stage.boss) return [];
   const roster = DATA.assistRoster || [];
   // 1) 优先：为该章节 + 该战斗标题专门指定的条目
+  /* 只认「章节 + 关卡名」的精确匹配。
+     以前匹配不到就退回「本章第一条 stages 为空的条目」，但同一章常常有好几条
+     这样的条目（例如 final 章有 7 条），取到谁全看排列顺序 ——
+     于是就会出现「思源篇的助战是李耀辉」这种串章。
+     宁可不出现助战，也不能出现错的人。 */
   const exact = roster.filter((a) =>
-    a.chapter === key && (a.stages || []).some((t) => title.indexOf(t) >= 0));
+    a.chapter === key && (a.stages || []).length &&
+    (a.stages || []).some((t) => t && title.indexOf(t) >= 0));
   if (exact.length) return exact.slice(0, 1);
-  // 2) 否则：该章节默认登场的那一位（未指定 stages 的第一条）
-  const byChapter = roster.filter((a) => a.chapter === key && !(a.stages && a.stages.length));
-  if (byChapter.length) return byChapter.slice(0, 1);
-  // 3) 兜底：旧的 DATA.assists
+  /* 兜底：旧的 DATA.assists，同样要求精确命中关卡名 */
   return (DATA.assists || []).filter((a) =>
-    a.chapter === key && (a.stages || []).some((t) => title.indexOf(t) >= 0)).slice(0, 1);
+    a.chapter === key && (a.stages || []).length &&
+    (a.stages || []).some((t) => t && title.indexOf(t) >= 0)).slice(0, 1);
 }
 /* 把援助角色做成一个玩家侧单位（不可操控） */
 function makeAssistUnit(a, idx) {
@@ -6177,23 +6397,23 @@ function showEverDetail(id) {
     "<div style=\'margin-top:16px\'><button class=\'btn btn-tiny\' data-act=\'back-ever\'>Back to Archive</button></div>");
   bindBack();
 }
-/* ---------- 创作者名单 ---------- */
+/* ---------- Credits ---------- */
 function openCredits() {
   const html =
     "<div style='text-align:center'>" +
-      "<h4 style='margin-top:4px'>创 作 者 名 单</h4>" +
+      "<h4 style=\'margin-top:4px\'>C R E D I T S</h4>" +
       "<p style='line-height:1.9;font-size:15px'>" +
-        "<b class='k'>主创</b>：玖喵瓷思源<br>" +
+        "<b class=\'k\'>Creator</b>: Jiu Miao Ci Si Yuan<br>" +
         "<span style='color:var(--muted)'>(《Eternal Order: Blade Soul》整体原作者)</span><br><br>" +
-        "<b class='k'>辅助主创 · 将想法实现</b>：DeepSeek-HARNESS<br><br>" +
-        "<b class='k'>传奇 bug 质检员</b>：泽斯克" +
+        "<b class=\'k\'>Assistant creator - turning ideas into reality</b>: DeepSeek-HARNESS<br><br>" +
+        "<b class=\'k\'>Legendary bug QA</b>: Zesk" +
       "</p>" +
       "<img src='credits_tokens.jpg' alt='消费金额 ¥31.36 CNY ｜ API 请求次数 2,417 ｜ Tokens 776,317,095' " +
         "style='width:100%;max-width:640px;margin:14px auto 6px;display:block;border-radius:10px;" +
         "border:1px solid rgba(214,178,90,.35)'>" +
       "<p style='color:var(--gold2);font-size:14px;margin-top:8px'>（钱钱飞升了）</p>" +
     "</div>";
-  openModal("创作者名单", html);
+  openModal("Credits", html);
 }
 function openAbout() {
   openModal("About the [Heng] Organization",
@@ -6412,6 +6632,7 @@ function boot() {
       toast("Clash animation speed:" + (S.animSpeed === "slow" ? "Slow" : S.animSpeed === "fast" ? "Fast" : "Standard"));
     }
     else if (act === "recruit") openRecruit(null);
+    else if (act === "dissolve") openDissolve();
     else if (act === "armory") openArmory();
     else if (act === "bag") openBag();
     else if (act === "arena") openArena();

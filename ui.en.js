@@ -471,11 +471,23 @@ function bootUi() {
   try { bindPressFeedback(); } catch (e) {}
   try { buildAudioDock(); } catch (e) {}
   // 界面切换时切曲
-  var lastScreen = null;
+  /* 界面切换时切曲。
+     注意：
+       1) 之前调的是不存在的 currentScreen()，于是每 800ms 抛一次异常 —— 这是卡顿来源；
+          正确取当前界面用 UI.screen。
+       2) bootUi() 可能被调用多次，必须只保留一个定时器，否则会叠加。
+       3) 回调整体包 try，单次出错不会刷屏。 */
   try {
-    setInterval(function () {
-      var s = currentScreen();
-      if (s !== lastScreen) { lastScreen = s; if (window.HengAudio) window.HengAudio.forScreen(s); }
+    if (window.__hengScreenWatcher) { clearInterval(window.__hengScreenWatcher); window.__hengScreenWatcher = null; }
+    var lastScreen = null;
+    window.__hengScreenWatcher = setInterval(function () {
+      try {
+        var s = (typeof UI !== "undefined" && UI && UI.screen) ? UI.screen : "title";
+        if (s !== lastScreen) {
+          lastScreen = s;
+          if (window.HengAudio && window.HengAudio.forScreen) window.HengAudio.forScreen(s);
+        }
+      } catch (e) {}
     }, 800);
   } catch (e) {}
   // 首次点击解锁音频

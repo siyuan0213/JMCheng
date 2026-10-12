@@ -1202,3 +1202,25 @@ body.dock-dragging{ user-select: none; cursor: grabbing; }
   .duel-vs{ font-size: 11px; letter-spacing: .08em; }
   .duel-card{ padding: 10px 11px; }
 }
+
+
+/* ---------- 标题界面分组 ---------- */
+.title-group {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: var(--muted);
+  opacity: .75;
+  text-align: center;
+}
+.title-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.title-row .btn { flex: 1 1 0; min-width: 120px; max-width: 240px; }
+@media (max-width: 420px) {
+  .title-row .btn { min-width: 0; flex: 1 1 46%; font-size: 13px; }
+}
