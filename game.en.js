@@ -6436,7 +6436,13 @@ else if (act === "duel") openDuel();
 else if (act === "activities") openActivities();
 else if (act === "spboss") openSpecialBosses();
 else if (act === "lang-en") {
+
 location.href = "index.en.html";
+}
+else if (act === "lang-zh") {
+
+try { localStorage.removeItem("heng_rpg_lang_v1"); } catch (e) {}
+location.href = "index.html";
 }
 else if (act === "slots") openSaveSlots();
 else if (act === "save") openSaveSlots();
